@@ -1,0 +1,40 @@
+# Virtual environments
+.venv/
+env/
+venv/
+ENV/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+
+# Results (keep sample CSVs and gitkeep)
+results/*.csv
+!results/sample_*.csv
+!results/.gitkeep
+llm_profiler/results/*.csv
+!llm_profiler/results/sample_*.csv
+!llm_profiler/results/.gitkeep
+
+# Model caches and checkpoints
+.cache/
+hf_cache/
+huggingface/
+*.bin
+*.safetensors
+*.pt
+*.pth
+
+# IDE and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs and profiling traces
+*.log
+*.sqlite
+traces/

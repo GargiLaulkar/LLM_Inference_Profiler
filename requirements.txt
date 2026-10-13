@@ -1,0 +1,7 @@
+# Core dependencies pinned for LLM Inference Profiler
+pyyaml==6.0.2
+aiohttp==3.10.5
+requests==2.32.3
+pytest==8.3.3
+transformers==4.46.3
+numpy>=1.26.0,<3.0.0

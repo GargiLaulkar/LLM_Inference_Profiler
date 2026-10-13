@@ -1,0 +1,24 @@
+model_name: "Qwen/Qwen2.5-0.5B-Instruct"
+server_host: "127.0.0.1"
+server_port: 8000
+server_url: "http://127.0.0.1:8000/v1"
+gpu_price_per_hour_usd: 1.0
+prometheus_scrape_interval_s: 5
+results_dir: "results"
+
+scenarios:
+  - name: "low_load"
+    rps: 1.0
+    num_requests: 100
+    prompt_tokens: 128
+    output_tokens: 64
+  - name: "medium_load"
+    rps: 5.0
+    num_requests: 100
+    prompt_tokens: 128
+    output_tokens: 64
+  - name: "long_prompt"
+    rps: 2.0
+    num_requests: 100
+    prompt_tokens: 1024
+    output_tokens: 64
