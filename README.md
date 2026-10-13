@@ -1,15 +1,7 @@
 # Project 6: Inference Cost and Latency Profiler for LLM Serving Stacks
 
 ## Overview
-This project profiles per-stage latency (tokenization, queue_wait, prefill, decode, detokenization, network, total), GPU metrics, and cost per 1M tokens in an LLM serving stack (vLLM OpenAI-compatible API), visualized in Grafana.
-
-This component covers:
-- Repository architecture & shared schema contracts
-- Environment health verification
-- Reference server management (vLLM)
-- Open-loop async load generator with exact token calibration
-- Baseline B1 profiling and scenario analysis
-- Contract validation and testing suite
+This project profiles per-stage latency (`tokenization`, `queue_wait`, `prefill`, `decode`, `detokenization`, `network`, `total`), GPU metrics, and cost per 1M tokens in an LLM serving stack (vLLM OpenAI-compatible API), visualized in Grafana.
 
 ---
 
@@ -24,11 +16,12 @@ llm_profiler/
 ├── docker/            # Docker compose and container definitions
 ├── experiments/       # Load generator, baseline runner, server scripts
 │   ├── check_env.py       # Environment and GPU verification script
+│   ├── reference_server.py # OpenAI & Prometheus compatible reference server
 │   ├── load_generator.py  # Async open-loop load generator
 │   ├── run_baseline_b1.py # Baseline B1 runner
 │   ├── check_contracts.py # Request CSV contract validator
-│   ├── start_server.sh    # vLLM launch script (Linux/WSL)
-│   └── start_server.ps1   # Windows server launch helper
+│   ├── start_server.sh    # vLLM launch script (Linux / WSL)
+│   └── start_server.ps1   # Server launch script (Windows)
 ├── tests/             # Unit and integration test suite
 │   └── test_load_generator.py
 ├── docs/              # Progress logs, baseline reports, team sync templates
@@ -43,10 +36,10 @@ llm_profiler/
 
 ## Shared Contracts
 
-### Stage Names
+### 1. Stage Names
 `tokenization`, `queue_wait`, `prefill`, `decode`, `detokenization`, `network`, `total`
 
-### Request Log CSV Schema
+### 2. Request Log CSV Schema
 Exact column order:
 ```text
 request_id,send_ts,end_ts,total_latency_s,prompt_tokens,output_tokens,status,target_rps,scenario_tag
@@ -54,41 +47,67 @@ request_id,send_ts,end_ts,total_latency_s,prompt_tokens,output_tokens,status,tar
 
 ---
 
-## Quick Start
+## Step-by-Step Instructions
 
-### 1. Setup Virtual Environment
+### 1. Create and Activate Virtual Environment
 ```bash
-python -m venv .venv
-# Linux / WSL:
+# On Linux / WSL:
+python3 -m venv .venv
 source .venv/bin/activate
-# Windows:
-.\.venv\Scripts\Activate.ps1
 
+# On Windows:
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
+
+### 2. Install Dependencies
+```bash
 pip install -r requirements.txt
 ```
 
-### 2. Verify Environment
+### 3. Check Environment & GPU
 ```bash
-python llm_profiler/experiments/check_env.py
+python experiments/check_env.py
 ```
 
-### 3. Start Reference Server
+### 4. Start Server
 ```bash
 # In WSL / Linux:
-bash llm_profiler/experiments/start_server.sh
+bash experiments/start_server.sh
+
+# On Windows PowerShell:
+.\experiments\start_server.ps1
+```
+Verify endpoints:
+```bash
+# Check completion endpoint
+curl http://127.0.0.1:8000/v1/completions -H "Content-Type: application/json" -d "{\"prompt\": \"The capital of France is\", \"max_tokens\": 16}"
+
+# Check metrics endpoint
+curl http://127.0.0.1:8000/metrics
 ```
 
-### 4. Run Smoke Test
+### 5. Run Smoke Test
 ```bash
-python llm_profiler/experiments/load_generator.py --num-requests 5 --rps 1 --scenario-tag smoke_test
+python experiments/load_generator.py --dry-run
+python experiments/load_generator.py --num-requests 5 --rps 1 --scenario-tag smoke_test
 ```
 
-### 5. Run Baseline B1
+### 6. Run Baseline B1
 ```bash
-python llm_profiler/experiments/run_baseline_b1.py
+# Run low_load scenario (100 requests):
+python experiments/run_baseline_b1.py --scenario low_load
+
+# Run all scenarios defined in config.yaml:
+python experiments/run_baseline_b1.py
 ```
 
-### 6. Run Tests
+### 7. Run Test Suite
 ```bash
-pytest
+pytest -v
+```
+
+### 8. Validate Contracts on Generated CSVs
+```bash
+python experiments/check_contracts.py results/baseline_b1_low_load.csv
 ```
