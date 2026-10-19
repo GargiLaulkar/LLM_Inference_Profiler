@@ -38,3 +38,7 @@ Thumbs.db
 *.log
 *.sqlite
 traces/
+
+# Environment files (commit .env.example only)
+.env
+docker/.env

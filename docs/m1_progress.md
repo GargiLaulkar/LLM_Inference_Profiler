@@ -7,3 +7,11 @@ STEP 4: DONE - Open-loop async load generator load_generator.py - python experim
 STEP 5: DONE - Baseline B1 runner run_baseline_b1.py - python experiments/run_baseline_b1.py --scenario low_load
 STEP 6: DONE - Test suite and sync docs - pytest; README.md and docs/team_sync_template.md
 STEP 7: DONE - Contract validator, runner scripts, Makefile - python experiments/check_contracts.py results/baseline_b1_low_load.csv
+STEP 8: DONE - Docker Compose stack with GPU-optimized vLLM, Prometheus, Grafana - docker compose -f docker/docker-compose.yml config; docker compose up -d
+STEP 9: DONE - Prometheus scraping vLLM metrics at 5s interval - curl http://localhost:9090/api/v1/targets; curl http://localhost:9090/api/v1/query?query=vllm:num_requests_running
+STEP 10: DONE - Grafana automated provisioning with datasource uid prometheus - curl http://localhost:3000/api/health
+STEP 11: DONE - Grafana dashboard with live vLLM metrics and teammate placeholder rows - curl http://localhost:3000/api/dashboards/uid/llmprof-main; curl http://localhost:9090/api/v1/query?query=vllm:e2e_request_latency_seconds_count
+STEP 12: DONE - Baseline B2 runner with vLLM histogram metrics snapshotting - python experiments/run_baseline_b2.py --scenario low_load
+STEP 13: DONE - Scenario matrix sweep runner with repeat and index logging - python experiments/run_matrix.py --scenario rps_1 --repeat 1
+STEP 14: DONE - Complete Makefile, clean-start README documentation, and architecture guide - ls Makefile docs/architecture_m1.md
+STEP 15: DONE - Clean-machine teardown and launch verification (217.4s to working stack) - make down; make up; make smoke

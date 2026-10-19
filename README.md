@@ -47,67 +47,99 @@ request_id,send_ts,end_ts,total_latency_s,prompt_tokens,output_tokens,status,tar
 
 ---
 
-## Step-by-Step Instructions
+## Clean-Start Guide
 
-### 1. Create and Activate Virtual Environment
+### 1. Prerequisites
+- **OS**: Windows 11 with WSL2 (Ubuntu) or Linux.
+- **Hardware**: NVIDIA GPU (e.g., RTX 3060 6GB) with NVIDIA Driver 535+ / CUDA 12.4+.
+- **Software**: Docker Desktop (WSL2 backend enabled), Python 3.10+, GNU Make.
+
+### 2. Environment Setup
+Copy the example environment configuration:
 ```bash
-# On Linux / WSL:
-python3 -m venv .venv
-source .venv/bin/activate
-
-# On Windows:
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
+cp .env.example .env
 ```
-
-### 2. Install Dependencies
+Ensure virtual environment dependencies are installed:
 ```bash
 pip install -r requirements.txt
 ```
 
-### 3. Check Environment & GPU
+### 3. Start the Platform Stack
+Start the serving stack (vLLM, Prometheus, Grafana) in the background:
 ```bash
-python experiments/check_env.py
+make up
+```
+To check container status:
+```bash
+docker compose -f docker/docker-compose.yml ps
+```
+To tail logs:
+```bash
+make logs
 ```
 
-### 4. Start Server
+### 4. Service Endpoints & Dashboards
+- **Grafana Observability Dashboard**: [http://localhost:3000](http://localhost:3000)
+  - Default User: `admin`
+  - Default Password: `changeme_strong_password_here` (configured in `.env`)
+  - Pre-provisioned Dashboard: `LLM Inference Profiler` (`uid: llmprof-main`)
+- **Prometheus Metrics & Target Status**: [http://localhost:9090](http://localhost:9090)
+- **vLLM API & Metrics**:
+  - Completions: `http://localhost:8000/v1/completions`
+  - Built-in Metrics: `http://localhost:8000/metrics`
+  - Health: `http://localhost:8000/health`
+
+### 5. Running Profiler Benchmarks
 ```bash
-# In WSL / Linux:
-bash experiments/start_server.sh
+# Quick dry-run & smoke test:
+make smoke
 
-# On Windows PowerShell:
-.\experiments\start_server.ps1
-```
-Verify endpoints:
-```bash
-# Check completion endpoint
-curl http://127.0.0.1:8000/v1/completions -H "Content-Type: application/json" -d "{\"prompt\": \"The capital of France is\", \"max_tokens\": 16}"
+# Run Baseline B1 (client-side latency benchmarks):
+make baseline-b1
 
-# Check metrics endpoint
-curl http://127.0.0.1:8000/metrics
-```
+# Run Baseline B2 (built-in vLLM Prometheus metrics):
+make baseline-b2
 
-### 5. Run Smoke Test
-```bash
-python experiments/load_generator.py --dry-run
-python experiments/load_generator.py --num-requests 5 --rps 1 --scenario-tag smoke_test
-```
+# Run Scenario Matrix sweep:
+make matrix
 
-### 6. Run Baseline B1
-```bash
-# Run low_load scenario (100 requests):
-python experiments/run_baseline_b1.py --scenario low_load
+# Run test suite & contract validation:
+make test
 
-# Run all scenarios defined in config.yaml:
-python experiments/run_baseline_b1.py
-```
-
-### 7. Run Test Suite
-```bash
-pytest -v
+# Tear down the stack:
+make down
 ```
 
-### 8. Validate Contracts on Generated CSVs
-```bash
-python experiments/check_contracts.py results/baseline_b1_low_load.csv
-```
+---
+
+## Teammate Integration Guide
+
+### How Teammates Enable Custom Exporters
+In `docker/docker-compose.yml`, uncomment the respective service blocks:
+1. **M2 / M4 Stage Timers & Cost Exporter** (`port 9101`):
+   - Uncomment the `profiler_exporter` block.
+   - Set the image name to your built exporter container.
+2. **M3 GPU Telemetry Collector** (`port 9102`):
+   - Uncomment the `gpu_collector` block.
+   - Set the image name (e.g. `dcgm-exporter` or custom collector).
+
+Prometheus is already configured in `docker/prometheus/prometheus.yml` to scrape both endpoints every 5 seconds.
+
+### Shared Contract Metric Names
+When implementing exporters or querying dashboards, use these exact metric names:
+
+| Metric Name | Labels | Description | Owner |
+|---|---|---|---|
+| `llmprof_stage_latency_seconds` | `stage="tokenization\|queue_wait\|prefill\|decode\|detokenization\|network\|total"` | Per-stage latency histogram / summary | M2 |
+| `llmprof_request_total_seconds` | | End-to-end request duration | M2 |
+| `llmprof_tokens_in_total` | | Cumulative input prompt tokens | M2 |
+| `llmprof_tokens_out_total` | | Cumulative generated output tokens | M2 |
+| `llmprof_gpu_utilization_percent` | `gpu="0"` | GPU core utilization percentage | M3 |
+| `llmprof_gpu_memory_used_bytes` | `gpu="0"` | Total GPU memory currently allocated | M3 |
+| `llmprof_gpu_power_watts` | `gpu="0"` | Instantaneous GPU power draw | M3 |
+| `llmprof_memory_breakdown_bytes` | `component="weights\|kv_cache\|activations", phase="idle\|prefill\|decode"` | Fine-grained VRAM breakdown | M3 |
+| `llmprof_cost_per_million_tokens_usd` | | Amortized inference dollar cost per 1M tokens | M4 |
+
+### Adding Panels to Grafana
+The dashboard `dashboards/llm_profiler_main.json` contains pre-arranged, labeled rows with placeholders for M2, M3, and M4. Once your exporter is running and scraped, open the panel in Grafana, bind it to datasource `prometheus`, and enter your PromQL query using the contract metric names above.
+

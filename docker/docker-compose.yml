@@ -1,0 +1,140 @@
+services:
+
+  # ─── vLLM OpenAI-compatible serving engine ─────────────────────────────────
+  vllm:
+    image: vllm/vllm-openai:v0.31.0
+    container_name: llmprof_vllm
+    runtime: nvidia
+    environment:
+      - HF_TOKEN=${HF_TOKEN:-}
+      - HUGGING_FACE_HUB_TOKEN=${HF_TOKEN:-}
+    command:
+      - "${VLLM_MODEL:-Qwen/Qwen2.5-0.5B-Instruct}"
+      - "--host"
+      - "0.0.0.0"
+      - "--port"
+      - "8000"
+      - "--max-model-len"
+      - "${VLLM_MAX_MODEL_LEN:-1024}"
+      - "--gpu-memory-utilization"
+      - "${VLLM_GPU_MEMORY_UTILIZATION:-0.65}"
+    volumes:
+      - hf_cache:/root/.cache/huggingface
+    ports:
+      - "${VLLM_PORT:-8000}:8000"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    ipc: host
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 300s
+    networks:
+      - llmprof
+
+  # ─── Prometheus metrics store ───────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v3.13.4
+    container_name: llmprof_prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=7d"
+      - "--web.enable-lifecycle"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    depends_on:
+      - vllm
+    networks:
+      - llmprof
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9090/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # ─── Grafana dashboards ─────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:11.5.0
+    container_name: llmprof_grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-changeme_strong_password_here}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/llm_profiler_main.json
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - llmprof
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # ─── Profiler Exporter placeholder (teammates enable this) ──────────────────
+  # Uncomment this block and implement the exporter at port 9101 to expose:
+  #   llmprof_stage_latency_seconds{stage}
+  #   llmprof_request_total_seconds
+  #   llmprof_tokens_in_total, llmprof_tokens_out_total
+  #   llmprof_cost_per_million_tokens_usd
+  #
+  # profiler_exporter:
+  #   image: <your-exporter-image>      # replace with teammate's image
+  #   container_name: llmprof_profiler_exporter
+  #   ports:
+  #     - "${PROFILER_EXPORTER_PORT:-9101}:9101"
+  #   networks:
+  #     - llmprof
+  #   depends_on:
+  #     - vllm
+
+  # ─── GPU Collector placeholder (teammates enable this) ──────────────────────
+  # Uncomment to expose GPU metrics at port 9102:
+  #   llmprof_gpu_utilization_percent{gpu}
+  #   llmprof_gpu_memory_used_bytes{gpu}
+  #   llmprof_gpu_power_watts{gpu}
+  #   llmprof_memory_breakdown_bytes{component,phase}
+  #
+  # gpu_collector:
+  #   image: <your-gpu-collector-image>  # e.g. nvcr.io/nvidia/k8s/dcgm-exporter
+  #   container_name: llmprof_gpu_collector
+  #   runtime: nvidia
+  #   ports:
+  #     - "${GPU_COLLECTOR_PORT:-9102}:9102"
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: all
+  #             capabilities: [gpu]
+  #   networks:
+  #     - llmprof
+
+volumes:
+  hf_cache:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  llmprof:
+    driver: bridge

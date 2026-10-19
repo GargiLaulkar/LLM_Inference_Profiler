@@ -17,8 +17,33 @@ scenarios:
     num_requests: 100
     prompt_tokens: 128
     output_tokens: 64
+  - name: "rps_1"
+    rps: 1.0
+    num_requests: 50
+    prompt_tokens: 128
+    output_tokens: 64
+  - name: "rps_5"
+    rps: 5.0
+    num_requests: 50
+    prompt_tokens: 128
+    output_tokens: 64
+  - name: "rps_10"
+    rps: 10.0
+    num_requests: 50
+    prompt_tokens: 128
+    output_tokens: 64
+  - name: "short_prompt"
+    rps: 2.0
+    num_requests: 50
+    prompt_tokens: 32
+    output_tokens: 64
   - name: "long_prompt"
     rps: 2.0
-    num_requests: 100
+    num_requests: 50
     prompt_tokens: 1024
     output_tokens: 64
+  - name: "long_output"
+    rps: 2.0
+    num_requests: 50
+    prompt_tokens: 128
+    output_tokens: 256

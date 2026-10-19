@@ -1,0 +1,29 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+
+  # vLLM built-in Prometheus metrics (always required)
+  - job_name: "vllm"
+    static_configs:
+      - targets: ["vllm:8000"]
+    metrics_path: /metrics
+    scrape_interval: 5s
+
+  # Profiler Exporter (M2 - stage timers + cost metrics)
+  # honour_labels: true lets this fail gracefully until teammate enables it
+  - job_name: "profiler_exporter"
+    static_configs:
+      - targets: ["profiler_exporter:9101"]
+    metrics_path: /metrics
+    scrape_interval: 5s
+    honor_labels: true
+
+  # GPU Collector (M3 - nvidia / DCGM metrics)
+  - job_name: "gpu_collector"
+    static_configs:
+      - targets: ["gpu_collector:9102"]
+    metrics_path: /metrics
+    scrape_interval: 5s
+    honor_labels: true
