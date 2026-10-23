@@ -91,21 +91,32 @@ services:
       start_period: 15s
 
   # ─── Profiler Exporter placeholder (teammates enable this) ──────────────────
-  # Uncomment this block and implement the exporter at port 9101 to expose:
-  #   llmprof_stage_latency_seconds{stage}
-  #   llmprof_request_total_seconds
-  #   llmprof_tokens_in_total, llmprof_tokens_out_total
-  #   llmprof_cost_per_million_tokens_usd
-  #
-  # profiler_exporter:
-  #   image: <your-exporter-image>      # replace with teammate's image
-  #   container_name: llmprof_profiler_exporter
-  #   ports:
-  #     - "${PROFILER_EXPORTER_PORT:-9101}:9101"
-  #   networks:
-  #     - llmprof
-  #   depends_on:
-  #     - vllm
+  profiler_exporter:
+    image: python:3.13-slim
+    container_name: llmprof_profiler_exporter
+    working_dir: /workspace
+    environment:
+      - PYTHONPATH=/workspace
+      - PROFILER_EXPORTER_PORT=${PROFILER_EXPORTER_PORT:-9101}
+    command:
+      - /bin/sh
+      - -lc
+      - >
+        PYTHONPATH=/workspace python -c "from llm_profiler.instrumentation import run_exporter; run_exporter(host='0.0.0.0', port=int(__import__('os').environ.get('PROFILER_EXPORTER_PORT', '9101')) )"
+    volumes:
+      - ../:/workspace:ro
+    ports:
+      - "${PROFILER_EXPORTER_PORT:-9101}:9101"
+    networks:
+      - llmprof
+    depends_on:
+      - vllm
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9101/metrics', timeout=2).read()"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   # ─── GPU Collector placeholder (teammates enable this) ──────────────────────
   # Uncomment to expose GPU metrics at port 9102:
