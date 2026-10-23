@@ -8,11 +8,14 @@ Columns: request_id,send_ts,end_ts,total_latency_s,prompt_tokens,output_tokens,s
 import argparse
 import asyncio
 import csv
+import json
 import os
 import sys
 import time
 import uuid
 from typing import List, Dict, Any, Optional
+import urllib.error
+import urllib.request
 import yaml
 import aiohttp
 
@@ -132,7 +135,6 @@ def calculate_percentiles(latencies: List[float]) -> Dict[str, float]:
         "p99": get_p(99),
     }
 
-
 async def send_single_request(
     session: aiohttp.ClientSession,
     url: str,
@@ -142,7 +144,7 @@ async def send_single_request(
     scenario_tag: str,
     estimated_prompt_tokens: int,
 ) -> Dict[str, Any]:
-    """Dispatches a single completion request with timing and error isolation."""
+    """Dispatch a single completion request with timing and error isolation."""
     headers = {
         "Content-Type": "application/json",
         "X-Request-ID": request_id,
@@ -156,34 +158,44 @@ async def send_single_request(
 
     try:
         async with session.post(url, json=payload, headers=headers) as response:
-            t_end = time.perf_counter()
-            end_ts = time.time()
-            total_latency = t_end - t_start
-
             if response.status == 200:
+                # Consume the response body before recording completion time.
                 data = await response.json()
                 usage = data.get("usage", {})
                 prompt_tokens = usage.get("prompt_tokens", prompt_tokens)
                 output_tokens = usage.get("completion_tokens", output_tokens)
                 status = "ok"
             else:
-                resp_text = await response.text()
+                await response.text()
                 status = f"error:http_{response.status}"
+
     except asyncio.TimeoutError:
-        t_end = time.perf_counter()
-        end_ts = time.time()
-        total_latency = t_end - t_start
         status = "error:timeout"
     except aiohttp.ClientError as ce:
-        t_end = time.perf_counter()
-        end_ts = time.time()
-        total_latency = t_end - t_start
         status = f"error:{type(ce).__name__}"
     except Exception as e:
-        t_end = time.perf_counter()
-        end_ts = time.time()
-        total_latency = t_end - t_start
         status = f"error:{type(e).__name__}"
+
+    # Capture completion after response-body consumption or error handling.
+    t_end = time.perf_counter()
+    end_ts = time.time()
+    total_latency = t_end - t_start
+
+    # Only successful requests contribute token counts.
+    exporter_tokens_in = 0
+    exporter_tokens_out = 0
+
+    if status == "ok":
+        exporter_tokens_in = int(prompt_tokens)
+        exporter_tokens_out = int(output_tokens)
+
+    # Best-effort exporter reporting. This call is outside the measured latency.
+    await asyncio.to_thread(
+        emit_request_metrics_to_exporter,
+        request_total_seconds=total_latency,
+        tokens_in_total=exporter_tokens_in,
+        tokens_out_total=exporter_tokens_out,
+    )
 
     return {
         "request_id": request_id,
@@ -319,6 +331,48 @@ async def run_load_generator(
     print("=" * 60 + "\n")
 
     return summary
+
+
+def emit_request_metrics_to_exporter(
+    *,
+    request_total_seconds: float,
+    tokens_in_total: int,
+    tokens_out_total: int,
+    exporter_url: Optional[str] = None,
+    timeout: float = 1.0,
+) -> bool:
+    """Best-effort forward to the M2 exporter ingestion endpoint.
+
+    The exporter remains the owner of the MetricRegistry. This helper never creates
+    its own registry and never fabricates stage timings. It only forwards actual
+    measured request totals and token counts when the URL is enabled.
+    """
+    configured_url = (exporter_url or os.environ.get("PROFILER_EXPORTER_URL"))
+    if configured_url is None:
+        configured_url = "http://127.0.0.1:9101"
+    if str(configured_url).strip() == "":
+        return False
+    if str(configured_url).strip().lower() in {"disabled", "false", "off", "none"}:
+        return False
+
+    request_body = json.dumps({
+        "request_total_seconds": float(request_total_seconds),
+        "tokens_in_total": int(tokens_in_total),
+        "tokens_out_total": int(tokens_out_total),
+    }).encode("utf-8")
+    url = str(configured_url).rstrip("/") + "/ingest"
+    request = urllib.request.Request(
+        url,
+        data=request_body,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            return int(getattr(response, "status", 200)) < 400
+    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, ValueError, OSError):
+        return False
 
 
 def main():

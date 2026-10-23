@@ -216,18 +216,126 @@
     },
 
     {
-      "collapsed": true,
+      "collapsed": false,
       "gridPos": {"h": 1, "w": 24, "x": 0, "y": 15},
       "id": 2,
-      "title": "Per-Stage Latency (M2 — awaiting profiler_exporter)",
+      "title": "Per-Stage Latency (M2)",
       "type": "row",
       "panels": [
         {
           "datasource": {"type": "prometheus", "uid": "prometheus"},
-          "gridPos": {"h": 5, "w": 24, "x": 0, "y": 16},
+          "fieldConfig": {
+            "defaults": {"unit": "s", "color": {"mode": "palette-classic"}},
+            "overrides": []
+          },
+          "gridPos": {"h": 7, "w": 12, "x": 0, "y": 16},
+          "id": 21,
+          "options": {
+            "legend": {"displayMode": "list", "placement": "bottom", "showLegend": true},
+            "tooltip": {"mode": "single", "sort": "desc"}
+          },
+          "targets": [
+            {
+              "datasource": {"type": "prometheus", "uid": "prometheus"},
+              "expr": "histogram_quantile(0.50, sum by (le, stage) (rate(llmprof_stage_latency_seconds_bucket{stage=~\"tokenization|queue_wait|prefill|decode|detokenization|network|total\"}[5m])))",
+              "legendFormat": "{{stage}} p50",
+              "refId": "A"
+            },
+            {
+              "datasource": {"type": "prometheus", "uid": "prometheus"},
+              "expr": "histogram_quantile(0.95, sum by (le, stage) (rate(llmprof_stage_latency_seconds_bucket{stage=~\"tokenization|queue_wait|prefill|decode|detokenization|network|total\"}[5m])))",
+              "legendFormat": "{{stage}} p95",
+              "refId": "B"
+            }
+          ],
+          "title": "Per-stage latency p50/p95 (llmprof_stage_latency_seconds)",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {
+            "defaults": {"unit": "s", "color": {"mode": "palette-classic"}},
+            "overrides": []
+          },
+          "gridPos": {"h": 7, "w": 12, "x": 12, "y": 16},
+          "id": 22,
+          "options": {
+            "legend": {"displayMode": "list", "placement": "bottom", "showLegend": true},
+            "tooltip": {"mode": "single", "sort": "desc"}
+          },
+          "targets": [
+            {
+              "datasource": {"type": "prometheus", "uid": "prometheus"},
+              "expr": "histogram_quantile(0.50, sum by (le) (rate(llmprof_request_total_seconds_bucket[5m])))",
+              "legendFormat": "p50 total",
+              "refId": "A"
+            },
+            {
+              "datasource": {"type": "prometheus", "uid": "prometheus"},
+              "expr": "histogram_quantile(0.95, sum by (le) (rate(llmprof_request_total_seconds_bucket[5m])))",
+              "legendFormat": "p95 total",
+              "refId": "B"
+            },
+            {
+              "datasource": {"type": "prometheus", "uid": "prometheus"},
+              "expr": "histogram_quantile(0.99, sum by (le) (rate(llmprof_request_total_seconds_bucket[5m])))",
+              "legendFormat": "p99 total",
+              "refId": "C"
+            }
+          ],
+          "title": "Total request duration (llmprof_request_total_seconds)",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {
+            "defaults": {"unit": "ops", "color": {"mode": "palette-classic"}},
+            "overrides": []
+          },
+          "gridPos": {"h": 7, "w": 24, "x": 0, "y": 23},
+          "id": 23,
+          "options": {
+            "legend": {"displayMode": "list", "placement": "bottom", "showLegend": true},
+            "tooltip": {"mode": "single", "sort": "desc"}
+          },
+          "targets": [
+            {
+              "datasource": {"type": "prometheus", "uid": "prometheus"},
+              "expr": "rate(llmprof_tokens_in_total[5m])",
+              "legendFormat": "input tokens / s",
+              "refId": "A"
+            },
+            {
+              "datasource": {"type": "prometheus", "uid": "prometheus"},
+              "expr": "rate(llmprof_tokens_out_total[5m])",
+              "legendFormat": "output tokens / s",
+              "refId": "B"
+            },
+            {
+              "datasource": {"type": "prometheus", "uid": "prometheus"},
+              "expr": "llmprof_tokens_in_total",
+              "legendFormat": "cumulative input tokens",
+              "refId": "C"
+            },
+            {
+              "datasource": {"type": "prometheus", "uid": "prometheus"},
+              "expr": "llmprof_tokens_out_total",
+              "legendFormat": "cumulative output tokens",
+              "refId": "D"
+            }
+          ],
+          "title": "Token counters (llmprof_tokens_in_total / llmprof_tokens_out_total)",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "gridPos": {"h": 4, "w": 24, "x": 0, "y": 30},
           "id": 20,
-          "options": {"mode": "markdown", "content": "## Per-Stage Latency — M2 Implementation\n\nThis row will be populated by the **profiler_exporter** (port 9101) once enabled by teammate M2.\n\nMetric feeding these panels:\n```\nllmprof_stage_latency_seconds{stage=\"tokenization\"}\nllmprof_stage_latency_seconds{stage=\"queue_wait\"}\nllmprof_stage_latency_seconds{stage=\"prefill\"}\nllmprof_stage_latency_seconds{stage=\"decode\"}\nllmprof_stage_latency_seconds{stage=\"detokenization\"}\nllmprof_stage_latency_seconds{stage=\"network\"}\nllmprof_stage_latency_seconds{stage=\"total\"}\nllmprof_request_total_seconds\nllmprof_tokens_in_total\nllmprof_tokens_out_total\n```\n\nTo enable: uncomment `profiler_exporter` in `docker/docker-compose.yml` and re-run `make up`."},
-          "title": "",
+          "options": {
+            "mode": "markdown",
+            "content": "## M2 exporter measurements\n\nThese panels use the actual metrics emitted by the M2 exporter:\n\n- `llmprof_stage_latency_seconds{stage=\"tokenization\"|...|\"total\"}`\n- `llmprof_request_total_seconds`\n- `llmprof_tokens_in_total`\n- `llmprof_tokens_out_total`\n\nUnobserved stages are not rendered because the exporter omits empty stage series. Total request duration is shown separately from stage timings; it is not assumed to equal the sum of stage durations."
+          },
+          "title": "Exporter contract",
           "type": "text"
         }
       ]
