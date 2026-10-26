@@ -119,12 +119,17 @@ def test_two_gpus_metrics_and_conversions(mock_two_gpus):
     text = generate_latest(registry).decode("utf-8")
 
     # Verify Prometheus exposition text
-    assert 'llmprof_gpu_utilization_percent{gpu="0"} 45.0' in text
-    assert 'llmprof_gpu_utilization_percent{gpu="1"} 80.0' in text
-    assert 'llmprof_gpu_memory_used_bytes{gpu="0"} 8.589934592e+09' in text
-    assert 'llmprof_gpu_memory_used_bytes{gpu="1"} 1.2884901888e+10' in text
-    assert 'llmprof_gpu_power_watts{gpu="0"} 65.0' in text
-    assert 'llmprof_gpu_power_watts{gpu="1"} 110.5' in text
+    for prefix, expected_val in [
+        ('llmprof_gpu_utilization_percent{gpu="0"}', 45.0),
+        ('llmprof_gpu_utilization_percent{gpu="1"}', 80.0),
+        ('llmprof_gpu_memory_used_bytes{gpu="0"}', 8589934592.0),
+        ('llmprof_gpu_memory_used_bytes{gpu="1"}', 12884901888.0),
+        ('llmprof_gpu_power_watts{gpu="0"}', 65.0),
+        ('llmprof_gpu_power_watts{gpu="1"}', 110.5),
+    ]:
+        m = re.search(rf"{re.escape(prefix)}\s+([0-9.eE+-]+)", text)
+        assert m is not None, f"Metric '{prefix}' not found in exposition text"
+        assert float(m.group(1)) == pytest.approx(expected_val, rel=1e-6)
 
 
 def test_power_unsupported_on_one_gpu_leaves_gauge_absent(mock_two_gpus):
@@ -156,12 +161,18 @@ def test_power_unsupported_on_one_gpu_leaves_gauge_absent(mock_two_gpus):
     text = generate_latest(registry).decode("utf-8")
 
     # GPU 0 power is exported
-    assert 'llmprof_gpu_power_watts{gpu="0"} 50.0' in text
+    m_p0 = re.search(r'llmprof_gpu_power_watts\{gpu="0"\}\s+([0-9.eE+-]+)', text)
+    assert m_p0 is not None
+    assert float(m_p0.group(1)) == pytest.approx(50.0, rel=1e-6)
     # GPU 1 power is absent (never exported with fake 0)
     assert 'llmprof_gpu_power_watts{gpu="1"}' not in text
     # Other metrics for GPU 1 remain active
-    assert 'llmprof_gpu_utilization_percent{gpu="1"} 80.0' in text
-    assert 'llmprof_gpu_memory_used_bytes{gpu="1"} 1.2884901888e+10' in text
+    m_u1 = re.search(r'llmprof_gpu_utilization_percent\{gpu="1"\}\s+([0-9.eE+-]+)', text)
+    assert m_u1 is not None
+    assert float(m_u1.group(1)) == pytest.approx(80.0, rel=1e-6)
+    m_m1 = re.search(r'llmprof_gpu_memory_used_bytes\{gpu="1"\}\s+([0-9.eE+-]+)', text)
+    assert m_m1 is not None
+    assert float(m_m1.group(1)) == pytest.approx(12884901888.0, rel=1e-6)
 
 
 def test_nvml_init_failure_exits_one_and_skips_server():
@@ -339,9 +350,18 @@ def test_once_flag_prints_exposition_and_exits(mock_two_gpus, capsys):
         mock_server.assert_not_called()
 
         captured = capsys.readouterr()
-        assert "llmprof_gpu_utilization_percent{gpu=\"0\"} 45.0" in captured.out
-        assert "llmprof_gpu_memory_used_bytes{gpu=\"1\"} 1.2884901888e+10" in captured.out
-        assert "llmprof_gpu_power_watts{gpu=\"0\"} 65.0" in captured.out
+        m_u0 = re.search(r'llmprof_gpu_utilization_percent\{gpu="0"\}\s+([0-9.eE+-]+)', captured.out)
+        assert m_u0 is not None
+        assert float(m_u0.group(1)) == pytest.approx(45.0, rel=1e-6)
+
+        m_m1 = re.search(r'llmprof_gpu_memory_used_bytes\{gpu="1"\}\s+([0-9.eE+-]+)', captured.out)
+        assert m_m1 is not None
+        assert float(m_m1.group(1)) == pytest.approx(12884901888.0, rel=1e-6)
+
+        m_p0 = re.search(r'llmprof_gpu_power_watts\{gpu="0"\}\s+([0-9.eE+-]+)', captured.out)
+        assert m_p0 is not None
+        assert float(m_p0.group(1)) == pytest.approx(65.0, rel=1e-6)
+
         mock_two_gpus.nvmlShutdown.assert_called_once()
 
 
