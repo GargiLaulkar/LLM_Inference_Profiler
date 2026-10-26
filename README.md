@@ -84,6 +84,9 @@ make logs
   - Default Password: `changeme_strong_password_here` (configured in `.env`)
   - Pre-provisioned Dashboard: `LLM Inference Profiler` (`uid: llmprof-main`)
 - **Prometheus Metrics & Target Status**: [http://localhost:9090](http://localhost:9090)
+- **GPU Telemetry Collector (M3)**: [http://localhost:9102/metrics](http://localhost:9102/metrics)
+  - Live hardware metrics: `llmprof_gpu_utilization_percent`, `llmprof_gpu_memory_used_bytes`, `llmprof_gpu_power_watts`
+  - Deep-dive snapshot metrics: `llmprof_memory_breakdown_bytes` (watches `results/deep_dive/memory_breakdown.json` via read-only container mount `/data/deep_dive`)
 - **vLLM API & Metrics**:
   - Completions: `http://localhost:8000/v1/completions`
   - Built-in Metrics: `http://localhost:8000/metrics`
@@ -114,14 +117,18 @@ make down
 
 ## Teammate Integration Guide
 
-### How Teammates Enable Custom Exporters
-In `docker/docker-compose.yml`, uncomment the respective service blocks:
-1. **M2 / M4 Stage Timers & Cost Exporter** (`port 9101`):
-   - Uncomment the `profiler_exporter` block.
-   - Set the image name to your built exporter container.
-2. **M3 GPU Telemetry Collector** (`port 9102`):
-   - Uncomment the `gpu_collector` block.
-   - Set the image name (e.g. `dcgm-exporter` or custom collector).
+### Exporter Integration
+1. **M3 GPU Telemetry Collector** (`port 9102`):
+   - Integrated and active in `docker/docker-compose.yml` (`gpu_collector` service).
+   - Serves `llmprof_gpu_utilization_percent`, `llmprof_gpu_memory_used_bytes`, and `llmprof_gpu_power_watts` via NVML.
+   - Mounts `results/deep_dive/` to `/data/deep_dive:ro` to export `llmprof_memory_breakdown_bytes` snapshots.
+2. **M2 / M4 Stage Timers & Cost Exporter** (`port 9101`):
+   - Configured in `docker/docker-compose.yml` (`profiler_exporter` service).
+
+### Nsight Systems Deep-Dive Profiling & Hardware Limitations
+- The single-request deep-dive profiler (`llm_profiler/collectors/deep_dive.py` and `deep_dive_nsys.ps1`) runs directly against local PyTorch/HuggingFace checkpoints.
+- **6GB VRAM Limitation**: The RTX 3060 (6GB) cannot hold two model instances concurrently. Before running Nsight or deep-dive scripts, stop vLLM via `docker compose -f docker/docker-compose.yml stop vllm`. Restart with `docker compose -f docker/docker-compose.yml start vllm`.
+- **Trace File Hygiene**: Profiler trace outputs (`*.nsys-rep`, `*.qdrep`, Chrome JSON traces) are excluded by `.gitignore` and must never be committed.
 
 Prometheus is already configured in `docker/prometheus/prometheus.yml` to scrape both endpoints every 5 seconds.
 

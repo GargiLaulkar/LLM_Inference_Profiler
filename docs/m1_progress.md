@@ -15,3 +15,10 @@ STEP 12: DONE - Baseline B2 runner with vLLM histogram metrics snapshotting - py
 STEP 13: DONE - Scenario matrix sweep runner with repeat and index logging - python experiments/run_matrix.py --scenario rps_1 --repeat 1
 STEP 14: DONE - Complete Makefile, clean-start README documentation, and architecture guide - ls Makefile docs/architecture_m1.md
 STEP 15: DONE - Clean-machine teardown and launch verification (217.4s to working stack) - make down; make up; make smoke
+STEP 16: DONE - M3 GPU collector integrated and verified on RTX 3060 - curl.exe http://localhost:9102/metrics; python -m pytest tests/test_gpu_collector.py
+
+### M3 Integration Status Notes
+- GPU Telemetry Collector: VERIFIED (utilization, memory used bytes, and power watts live on RTX 3060 and scraped by Prometheus).
+- Test Suite: VERIFIED (all 146 tests passing across project, platform-independent exponent formatting in test_gpu_collector.py).
+- NOT YET VERIFIED: Memory Breakdown panels (Row 4 in Grafana), because results/deep_dive/memory_breakdown.json from M3 is missing.
+- NOT YET VERIFIED: Nsight deep-dive, not run on this machine.
