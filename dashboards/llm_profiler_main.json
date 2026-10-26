@@ -24,42 +24,73 @@
   "id": null,
   "links": [],
   "panels": [
-
     {
       "collapsed": false,
-      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0},
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
       "id": 1,
       "title": "Built-in vLLM Metrics",
       "type": "row"
     },
-
     {
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
-        "defaults": {"unit": "s", "color": {"mode": "palette-classic"}},
+        "defaults": {
+          "unit": "s",
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
         "overrides": []
       },
-      "gridPos": {"h": 7, "w": 8, "x": 0, "y": 1},
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 0,
+        "y": 1
+      },
       "id": 10,
       "options": {
-        "legend": {"displayMode": "list", "placement": "bottom", "showLegend": true},
-        "tooltip": {"mode": "single"}
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single"
+        }
       },
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "histogram_quantile(0.50, sum(rate(vllm:e2e_request_latency_seconds_bucket[1m])) by (le))",
           "legendFormat": "p50 E2E latency",
           "refId": "A"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "histogram_quantile(0.95, sum(rate(vllm:e2e_request_latency_seconds_bucket[1m])) by (le))",
           "legendFormat": "p95 E2E latency",
           "refId": "B"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "histogram_quantile(0.99, sum(rate(vllm:e2e_request_latency_seconds_bucket[1m])) by (le))",
           "legendFormat": "p99 E2E latency",
           "refId": "C"
@@ -68,28 +99,52 @@
       "title": "E2E Request Latency (vllm:e2e_request_latency_seconds)",
       "type": "timeseries"
     },
-
     {
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
-        "defaults": {"unit": "s", "color": {"mode": "palette-classic"}},
+        "defaults": {
+          "unit": "s",
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
         "overrides": []
       },
-      "gridPos": {"h": 7, "w": 8, "x": 8, "y": 1},
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 8,
+        "y": 1
+      },
       "id": 11,
       "options": {
-        "legend": {"displayMode": "list", "placement": "bottom", "showLegend": true},
-        "tooltip": {"mode": "single"}
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single"
+        }
       },
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "histogram_quantile(0.50, sum(rate(vllm:time_to_first_token_seconds_bucket[1m])) by (le))",
           "legendFormat": "p50 TTFT",
           "refId": "A"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "histogram_quantile(0.95, sum(rate(vllm:time_to_first_token_seconds_bucket[1m])) by (le))",
           "legendFormat": "p95 TTFT",
           "refId": "B"
@@ -98,28 +153,52 @@
       "title": "Time to First Token (vllm:time_to_first_token_seconds)",
       "type": "timeseries"
     },
-
     {
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
-        "defaults": {"unit": "s", "color": {"mode": "palette-classic"}},
+        "defaults": {
+          "unit": "s",
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
         "overrides": []
       },
-      "gridPos": {"h": 7, "w": 8, "x": 16, "y": 1},
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 16,
+        "y": 1
+      },
       "id": 12,
       "options": {
-        "legend": {"displayMode": "list", "placement": "bottom", "showLegend": true},
-        "tooltip": {"mode": "single"}
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single"
+        }
       },
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "histogram_quantile(0.50, sum(rate(vllm:request_queue_time_seconds_bucket[1m])) by (le))",
           "legendFormat": "p50 queue time",
           "refId": "A"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "histogram_quantile(0.95, sum(rate(vllm:request_queue_time_seconds_bucket[1m])) by (le))",
           "legendFormat": "p95 queue time",
           "refId": "B"
@@ -128,28 +207,52 @@
       "title": "Queue Wait Time (vllm:request_queue_time_seconds)",
       "type": "timeseries"
     },
-
     {
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
-        "defaults": {"unit": "short", "color": {"mode": "palette-classic"}},
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
         "overrides": []
       },
-      "gridPos": {"h": 7, "w": 8, "x": 0, "y": 8},
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 0,
+        "y": 8
+      },
       "id": 13,
       "options": {
-        "legend": {"displayMode": "list", "placement": "bottom", "showLegend": true},
-        "tooltip": {"mode": "single"}
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single"
+        }
       },
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "vllm:num_requests_running",
           "legendFormat": "running",
           "refId": "A"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "vllm:num_requests_waiting",
           "legendFormat": "waiting",
           "refId": "B"
@@ -158,54 +261,115 @@
       "title": "Active Requests (running / waiting)",
       "type": "timeseries"
     },
-
     {
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
-        "defaults": {"unit": "percentunit", "min": 0, "max": 1, "color": {"mode": "thresholds"},
-          "thresholds": {"mode": "absolute", "steps": [
-            {"color": "green", "value": null},
-            {"color": "yellow", "value": 0.7},
-            {"color": "red", "value": 0.9}
-          ]}},
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.7
+              },
+              {
+                "color": "red",
+                "value": 0.9
+              }
+            ]
+          }
+        },
         "overrides": []
       },
-      "gridPos": {"h": 7, "w": 8, "x": 8, "y": 8},
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 8,
+        "y": 8
+      },
       "id": 14,
-      "options": {"reduceOptions": {"values": false, "calcs": ["lastNotNull"], "fields": ""}},
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        }
+      },
       "title": "KV Cache Usage (vllm:gpu_cache_usage_factor)",
       "type": "gauge",
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "vllm:kv_cache_usage_perc",
           "legendFormat": "KV cache",
           "refId": "A"
         }
       ]
     },
-
     {
-      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "fieldConfig": {
-        "defaults": {"unit": "tps", "color": {"mode": "palette-classic"}},
+        "defaults": {
+          "unit": "tps",
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
         "overrides": []
       },
-      "gridPos": {"h": 7, "w": 8, "x": 16, "y": 8},
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 16,
+        "y": 8
+      },
       "id": 15,
       "options": {
-        "legend": {"displayMode": "list", "placement": "bottom", "showLegend": true},
-        "tooltip": {"mode": "single"}
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single"
+        }
       },
       "targets": [
         {
-          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "rate(vllm:prompt_tokens_total[1m])",
           "legendFormat": "prompt tok/s",
           "refId": "A"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "rate(vllm:generation_tokens_total[1m])",
           "legendFormat": "generation tok/s",
           "refId": "B"
@@ -214,35 +378,65 @@
       "title": "Token Throughput (prompt & generation tok/s)",
       "type": "timeseries"
     },
-
     {
       "collapsed": false,
-      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 15},
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 15
+      },
       "id": 2,
       "title": "Per-Stage Latency (M2)",
       "type": "row",
       "panels": [
         {
-          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "fieldConfig": {
-            "defaults": {"unit": "s", "color": {"mode": "palette-classic"}},
+            "defaults": {
+              "unit": "s",
+              "color": {
+                "mode": "palette-classic"
+              }
+            },
             "overrides": []
           },
-          "gridPos": {"h": 7, "w": 12, "x": 0, "y": 16},
+          "gridPos": {
+            "h": 7,
+            "w": 12,
+            "x": 0,
+            "y": 16
+          },
           "id": 21,
           "options": {
-            "legend": {"displayMode": "list", "placement": "bottom", "showLegend": true},
-            "tooltip": {"mode": "single", "sort": "desc"}
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "desc"
+            }
           },
           "targets": [
             {
-              "datasource": {"type": "prometheus", "uid": "prometheus"},
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
               "expr": "histogram_quantile(0.50, sum by (le, stage) (rate(llmprof_stage_latency_seconds_bucket{stage=~\"tokenization|queue_wait|prefill|decode|detokenization|network|total\"}[5m])))",
               "legendFormat": "{{stage}} p50",
               "refId": "A"
             },
             {
-              "datasource": {"type": "prometheus", "uid": "prometheus"},
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
               "expr": "histogram_quantile(0.95, sum by (le, stage) (rate(llmprof_stage_latency_seconds_bucket{stage=~\"tokenization|queue_wait|prefill|decode|detokenization|network|total\"}[5m])))",
               "legendFormat": "{{stage}} p95",
               "refId": "B"
@@ -252,32 +446,61 @@
           "type": "timeseries"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "fieldConfig": {
-            "defaults": {"unit": "s", "color": {"mode": "palette-classic"}},
+            "defaults": {
+              "unit": "s",
+              "color": {
+                "mode": "palette-classic"
+              }
+            },
             "overrides": []
           },
-          "gridPos": {"h": 7, "w": 12, "x": 12, "y": 16},
+          "gridPos": {
+            "h": 7,
+            "w": 12,
+            "x": 12,
+            "y": 16
+          },
           "id": 22,
           "options": {
-            "legend": {"displayMode": "list", "placement": "bottom", "showLegend": true},
-            "tooltip": {"mode": "single", "sort": "desc"}
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "desc"
+            }
           },
           "targets": [
             {
-              "datasource": {"type": "prometheus", "uid": "prometheus"},
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
               "expr": "histogram_quantile(0.50, sum by (le) (rate(llmprof_request_total_seconds_bucket[5m])))",
               "legendFormat": "p50 total",
               "refId": "A"
             },
             {
-              "datasource": {"type": "prometheus", "uid": "prometheus"},
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
               "expr": "histogram_quantile(0.95, sum by (le) (rate(llmprof_request_total_seconds_bucket[5m])))",
               "legendFormat": "p95 total",
               "refId": "B"
             },
             {
-              "datasource": {"type": "prometheus", "uid": "prometheus"},
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
               "expr": "histogram_quantile(0.99, sum by (le) (rate(llmprof_request_total_seconds_bucket[5m])))",
               "legendFormat": "p99 total",
               "refId": "C"
@@ -287,38 +510,70 @@
           "type": "timeseries"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "fieldConfig": {
-            "defaults": {"unit": "ops", "color": {"mode": "palette-classic"}},
+            "defaults": {
+              "unit": "ops",
+              "color": {
+                "mode": "palette-classic"
+              }
+            },
             "overrides": []
           },
-          "gridPos": {"h": 7, "w": 24, "x": 0, "y": 23},
+          "gridPos": {
+            "h": 7,
+            "w": 24,
+            "x": 0,
+            "y": 23
+          },
           "id": 23,
           "options": {
-            "legend": {"displayMode": "list", "placement": "bottom", "showLegend": true},
-            "tooltip": {"mode": "single", "sort": "desc"}
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "desc"
+            }
           },
           "targets": [
             {
-              "datasource": {"type": "prometheus", "uid": "prometheus"},
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
               "expr": "rate(llmprof_tokens_in_total[5m])",
               "legendFormat": "input tokens / s",
               "refId": "A"
             },
             {
-              "datasource": {"type": "prometheus", "uid": "prometheus"},
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
               "expr": "rate(llmprof_tokens_out_total[5m])",
               "legendFormat": "output tokens / s",
               "refId": "B"
             },
             {
-              "datasource": {"type": "prometheus", "uid": "prometheus"},
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
               "expr": "llmprof_tokens_in_total",
               "legendFormat": "cumulative input tokens",
               "refId": "C"
             },
             {
-              "datasource": {"type": "prometheus", "uid": "prometheus"},
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
               "expr": "llmprof_tokens_out_total",
               "legendFormat": "cumulative output tokens",
               "refId": "D"
@@ -328,8 +583,16 @@
           "type": "timeseries"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "prometheus"},
-          "gridPos": {"h": 4, "w": 24, "x": 0, "y": 30},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 24,
+            "x": 0,
+            "y": 30
+          },
           "id": 20,
           "options": {
             "mode": "markdown",
@@ -340,67 +603,335 @@
         }
       ]
     },
-
     {
-      "collapsed": true,
-      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 16},
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
       "id": 3,
-      "title": "GPU Metrics (M3 — awaiting gpu_collector)",
+      "title": "GPU Metrics (M3)",
       "type": "row",
-      "panels": [
-        {
-          "datasource": {"type": "prometheus", "uid": "prometheus"},
-          "gridPos": {"h": 5, "w": 24, "x": 0, "y": 17},
-          "id": 30,
-          "options": {"mode": "markdown", "content": "## GPU Metrics — M3 Implementation\n\nThis row will be populated by the **gpu_collector** (port 9102) once enabled by teammate M3.\n\nMetrics feeding these panels:\n```\nllmprof_gpu_utilization_percent{gpu=\"0\"}\nllmprof_gpu_memory_used_bytes{gpu=\"0\"}\nllmprof_gpu_power_watts{gpu=\"0\"}\n```\n\nTo enable: uncomment `gpu_collector` in `docker/docker-compose.yml` and re-run `make up`."},
-          "title": "",
-          "type": "text"
-        }
-      ]
+      "panels": []
     },
-
     {
-      "collapsed": true,
-      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 17},
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "max": 100,
+          "min": 0,
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 17
+      },
+      "id": 31,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max",
+            "mean"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "all"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "llmprof_gpu_utilization_percent",
+          "legendFormat": "GPU {{gpu}}",
+          "refId": "A"
+        }
+      ],
+      "title": "GPU Utilization (%)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "min": 0,
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 17
+      },
+      "id": 32,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max",
+            "mean"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "all"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "llmprof_gpu_memory_used_bytes",
+          "legendFormat": "GPU {{gpu}}",
+          "refId": "A"
+        }
+      ],
+      "title": "GPU Memory Used",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "min": 0,
+          "unit": "watt"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 17
+      },
+      "id": 33,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max",
+            "mean"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "all"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "llmprof_gpu_power_watts",
+          "legendFormat": "GPU {{gpu}}",
+          "refId": "A"
+        }
+      ],
+      "title": "GPU Power (W)",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 25
+      },
       "id": 4,
-      "title": "Memory Breakdown (M3 — awaiting gpu_collector)",
+      "title": "Memory Breakdown (M3)",
       "type": "row",
-      "panels": [
-        {
-          "datasource": {"type": "prometheus", "uid": "prometheus"},
-          "gridPos": {"h": 5, "w": 24, "x": 0, "y": 18},
-          "id": 40,
-          "options": {"mode": "markdown", "content": "## Memory Breakdown — M3 Implementation\n\nMetric feeding these panels:\n```\nllmprof_memory_breakdown_bytes{component=\"weights\",phase=\"prefill\"}\nllmprof_memory_breakdown_bytes{component=\"kv_cache\",phase=\"decode\"}\nllmprof_memory_breakdown_bytes{component=\"activations\",phase=\"prefill\"}\n```"},
-          "title": "",
-          "type": "text"
-        }
-      ]
+      "panels": []
     },
-
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Static values from the last deep-dive run (memory_breakdown.json), not live memory.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "min": 0,
+          "color": {
+            "mode": "continuous-GrYlRd"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 26
+      },
+      "id": 41,
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "valueMode": "color"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "llmprof_memory_breakdown_bytes{phase=\"prefill\"}",
+          "legendFormat": "{{component}}",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Memory by component, prefill",
+      "type": "bargauge"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Static values from the last deep-dive run (memory_breakdown.json), not live memory.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "min": 0,
+          "color": {
+            "mode": "continuous-GrYlRd"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 26
+      },
+      "id": 42,
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "valueMode": "color"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "llmprof_memory_breakdown_bytes{phase=\"decode\"}",
+          "legendFormat": "{{component}}",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Memory by component, decode",
+      "type": "bargauge"
+    },
     {
       "collapsed": true,
-      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 18},
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 34
+      },
       "id": 5,
       "title": "Cost per 1M Tokens (M4 — awaiting profiler_exporter)",
       "type": "row",
       "panels": [
         {
-          "datasource": {"type": "prometheus", "uid": "prometheus"},
-          "gridPos": {"h": 5, "w": 24, "x": 0, "y": 19},
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "h": 5,
+            "w": 24,
+            "x": 0,
+            "y": 35
+          },
           "id": 50,
-          "options": {"mode": "markdown", "content": "## Cost per 1M Tokens — M4 Implementation\n\nMetric feeding this panel:\n```\nllmprof_cost_per_million_tokens_usd\n```\n\nCalculated in the analyzer using `gpu_price_per_hour_usd` from `config.yaml` divided by total output tokens in the observation window.\n\nTo enable: implement cost calculation in `llm_profiler/analyzer/` and expose via `profiler_exporter`."},
+          "options": {
+            "mode": "markdown",
+            "content": "## Cost per 1M Tokens — M4 Implementation\n\nMetric feeding this panel:\n```\nllmprof_cost_per_million_tokens_usd\n```\n\nCalculated in the analyzer using `gpu_price_per_hour_usd` from `config.yaml` divided by total output tokens in the observation window.\n\nTo enable: implement cost calculation in `llm_profiler/analyzer/` and expose via `profiler_exporter`."
+          },
           "title": "",
           "type": "text"
         }
       ]
     }
-
   ],
   "refresh": "5s",
   "schemaVersion": 41,
-  "tags": ["llm", "profiler", "vllm", "inference"],
-  "templating": {"list": []},
-  "time": {"from": "now-30m", "to": "now"},
+  "tags": [
+    "llm",
+    "profiler",
+    "vllm",
+    "inference"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
   "timepicker": {},
   "timezone": "browser",
   "title": "LLM Inference Profiler",

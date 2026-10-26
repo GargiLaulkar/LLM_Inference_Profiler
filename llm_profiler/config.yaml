@@ -47,3 +47,8 @@ scenarios:
     num_requests: 50
     prompt_tokens: 128
     output_tokens: 256
+
+gpu_collector:
+  port: 9102
+  sample_interval_s: 1.0
+  memory_breakdown_file: results/deep_dive/memory_breakdown.json
