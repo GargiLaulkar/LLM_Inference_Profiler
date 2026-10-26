@@ -118,28 +118,41 @@ services:
       retries: 5
       start_period: 10s
 
-  # ─── GPU Collector placeholder (teammates enable this) ──────────────────────
-  # Uncomment to expose GPU metrics at port 9102:
-  #   llmprof_gpu_utilization_percent{gpu}
-  #   llmprof_gpu_memory_used_bytes{gpu}
-  #   llmprof_gpu_power_watts{gpu}
-  #   llmprof_memory_breakdown_bytes{component,phase}
-  #
-  # gpu_collector:
-  #   image: <your-gpu-collector-image>  # e.g. nvcr.io/nvidia/k8s/dcgm-exporter
-  #   container_name: llmprof_gpu_collector
-  #   runtime: nvidia
-  #   ports:
-  #     - "${GPU_COLLECTOR_PORT:-9102}:9102"
-  #   deploy:
-  #     resources:
-  #       reservations:
-  #         devices:
-  #           - driver: nvidia
-  #             count: all
-  #             capabilities: [gpu]
-  #   networks:
-  #     - llmprof
+  # ─── GPU Collector (M3: pynvml Prometheus Exporter) ─────────────────────────
+  gpu_collector:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.gpu_collector
+    image: llmprof_gpu_collector:latest
+    container_name: llmprof_gpu_collector
+    runtime: nvidia
+    restart: unless-stopped
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=utility
+      - GPU_COLLECTOR_PORT=${GPU_COLLECTOR_PORT:-9102}
+    ports:
+      - "${GPU_COLLECTOR_PORT:-9102}:9102"
+    volumes:
+      - "../results/deep_dive:/data/deep_dive:ro"
+    command:
+      - "--memory-breakdown-file"
+      - "/data/deep_dive/memory_breakdown.json"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    networks:
+      - llmprof
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9102/metrics', timeout=2).read()"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
 volumes:
   hf_cache:
