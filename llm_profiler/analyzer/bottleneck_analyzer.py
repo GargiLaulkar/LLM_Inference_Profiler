@@ -1,8 +1,13 @@
-"""Bottleneck Analyzer and Consistency Validator for LLM Serving Stacks (Member 4).
+"""Bottleneck Analyzer and Consistency Validator for LLM Serving Stacks (Member 4 - Sprint 2).
 
 Ranks the top 3 bottlenecks, computes explained latency share, calculates
 inference cost per 1M tokens, validates consistency between stage sums and total latency,
 incorporates optional GPU and memory breakdown evidence, and provides domain-specific actions.
+
+Supports three telemetry analysis modes:
+1. Stage data only
+2. Stage data + GPU metrics
+3. Stage data + GPU metrics + memory breakdown
 
 Contracts strictly honored:
 - Stage names: tokenization, queue_wait, prefill, decode, detokenization, network, plus total.
@@ -27,17 +32,21 @@ Contracts strictly honored:
 
 from __future__ import annotations
 
-import argparse
-import csv
-import json
 import math
 import os
 import sys
-from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
-
-import yaml
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 from .cost_model import CostModel, load_gpu_price_from_config
+from .readers import (
+    PrometheusClient,
+    PrometheusUnreachableError,
+    join_by_request_id,
+    read_memory_breakdown_json,
+    read_request_csv,
+    read_trace_jsonl,
+)
 from ..instrumentation.stage_timing import STAGE_NAMES, STAGE_NAME_SET
 
 # Dominant stage threshold: if a stage accounts for >= 50% of latency, it is dominant.
@@ -77,49 +86,15 @@ SUGGESTED_ACTIONS: Dict[str, str] = {
     ),
 }
 
-CONTRACT_COMPONENTS = ["weights", "kv_cache", "activations", "other"]
-CONTRACT_PHASES = ["prefill", "decode"]
-
 
 def parse_memory_breakdown(
-    memory_breakdown_path: Optional[str],
+    memory_breakdown_path: Optional[str | Path],
 ) -> Tuple[Optional[Dict[str, Any]], str]:
     """Parse optional memory_breakdown.json according to M3 component/phase layout.
 
-    Returns:
-        Tuple of (parsed_data, status_or_evidence_string).
+    For backwards compatibility, delegates to read_memory_breakdown_json.
     """
-    if not memory_breakdown_path or not os.path.exists(memory_breakdown_path):
-        return None, "memory evidence unavailable"
-
-    try:
-        with open(memory_breakdown_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-    except Exception as exc:
-        return None, f"memory breakdown parse error: {exc}"
-
-    if not isinstance(data, dict):
-        return None, "memory_breakdown schema mismatch: expected top-level JSON object"
-
-    phases = data.get("phases")
-    if not isinstance(phases, dict):
-        return None, "memory_breakdown schema mismatch: missing 'phases' dictionary"
-
-    # Validate phases
-    missing_phases = [p for p in CONTRACT_PHASES if p not in phases]
-    if missing_phases:
-        return None, f"memory_breakdown schema mismatch: missing phases {missing_phases}"
-
-    # Validate components in each phase
-    for phase_name in CONTRACT_PHASES:
-        phase_dict = phases[phase_name]
-        if not isinstance(phase_dict, dict):
-            return None, f"memory_breakdown schema mismatch: phase '{phase_name}' must be a dictionary"
-        missing_comp = [c for c in CONTRACT_COMPONENTS if c not in phase_dict]
-        if missing_comp:
-            return None, f"memory_breakdown schema mismatch: phase '{phase_name}' missing components {missing_comp}"
-
-    return data, "valid"
+    return read_memory_breakdown_json(memory_breakdown_path)
 
 
 class BottleneckAnalyzer:
@@ -128,170 +103,255 @@ class BottleneckAnalyzer:
     def __init__(
         self,
         gpu_price_per_hour_usd: Optional[float] = None,
-        config_path: Optional[str] = None,
+        config_path: Optional[str | Path] = None,
         force_full_time_share: bool = False,
+        prom_client: Optional[PrometheusClient] = None,
     ) -> None:
-        self.config_path = config_path
+        self.config_path = str(config_path) if config_path else None
         self.gpu_price_per_hour_usd = (
             float(gpu_price_per_hour_usd)
             if gpu_price_per_hour_usd is not None
-            else load_gpu_price_from_config(config_path)
+            else load_gpu_price_from_config(self.config_path)
         )
         self.force_full_time_share = force_full_time_share
         self.cost_model = CostModel(
             gpu_price_per_hour_usd=self.gpu_price_per_hour_usd,
             force_full_time_share=self.force_full_time_share,
         )
+        self.prom_client = prom_client
 
     def analyze(
         self,
-        csv_path: str,
-        traces_path: Optional[str] = None,
-        memory_breakdown_path: Optional[str] = None,
+        csv_path: str | Path,
+        traces_path: Optional[str | Path] = None,
+        memory_breakdown_path: Optional[str | Path] = None,
         gpu_metrics: Optional[Dict[str, Any]] = None,
+        stage_metrics: Optional[Dict[str, Dict[str, float]]] = None,
+        memory_metrics: Optional[Dict[str, Dict[str, float]]] = None,
         max_bottlenecks: int = 3,
         force_full_time_share: Optional[bool] = None,
     ) -> Dict[str, Any]:
         """Analyze request CSV and per-stage traces, returning contract JSON.
 
+        Supports 3 telemetry modes:
+        1. Stage data only
+        2. Stage data + GPU metrics
+        3. Stage data + GPU metrics + memory breakdown
+
         Parameters:
             csv_path: Path to request log CSV.
             traces_path: Optional path to per-stage trace JSON lines file.
             memory_breakdown_path: Optional path to M3 memory_breakdown.json.
-            gpu_metrics: Optional dictionary containing live GPU telemetry snapshot.
+            gpu_metrics: Optional dictionary containing GPU telemetry gauges.
+            stage_metrics: Optional Prometheus mean/quantile latency summary.
+            memory_metrics: Optional Prometheus memory gauges grouped by phase.
             max_bottlenecks: Number of top bottlenecks to rank (default 3).
             force_full_time_share: Optional override for time_share=1.0.
 
         Returns:
             Dictionary strictly adhering to the contract JSON schema.
         """
-        if not os.path.exists(csv_path):
-            raise FileNotFoundError(f"Request log CSV not found: {csv_path}")
+        # 1. Parse CSV requests via robust reader
+        all_csv_records = read_request_csv(csv_path)
+        csv_requests = [
+            r for r in all_csv_records
+            if str(r.get("status", "ok")).strip() == "ok" or str(r.get("status", "")).startswith("ok")
+        ]
 
-        # 1. Parse CSV requests
-        csv_requests: List[Dict[str, Any]] = []
-        with open(csv_path, "r", encoding="utf-8") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                status = str(row.get("status", "ok")).strip()
-                if status == "ok" or status.startswith("ok"):
-                    csv_requests.append(row)
-
-        # 2. Parse Traces if available
-        traces_by_req: Dict[str, List[Dict[str, Any]]] = {}
-        missing_traces_file = False
-
+        # Prefer measured Prometheus means when supplied; otherwise use trace records.
+        has_stage_metrics = bool(stage_metrics) and any(
+            stage in STAGE_NAME_SET
+            and stage != "total"
+            and math.isfinite(float(values.get("mean", 0.0)))
+            and float(values.get("mean", 0.0)) > 0
+            for stage, values in (stage_metrics or {}).items()
+        )
+        joined_requests: Dict[str, Dict[str, Any]] = {}
+        missing_traces_file = not has_stage_metrics
         if traces_path and os.path.exists(traces_path):
-            with open(traces_path, "r", encoding="utf-8") as f:
-                for line_idx, line in enumerate(f, start=1):
-                    line_str = line.strip()
-                    if not line_str:
-                        continue
-                    try:
-                        record = json.loads(line_str)
-                        req_id = str(record.get("request_id", "")).strip()
-                        if req_id:
-                            traces_by_req.setdefault(req_id, []).append(record)
-                    except json.JSONDecodeError as err:
-                        print(f"[WARN] Invalid JSON line {line_idx} in {traces_path}: {err}", file=sys.stderr)
-        else:
-            missing_traces_file = True
+            valid_traces, _ = read_trace_jsonl(traces_path)
+            joined_requests = join_by_request_id(csv_requests, valid_traces)
+            if not has_stage_metrics and valid_traces:
+                missing_traces_file = False
 
-        # 3. Parse optional memory breakdown
-        memory_data, memory_status = parse_memory_breakdown(memory_breakdown_path)
+        # 3. Parse optional memory breakdown via robust reader
+        memory_data, memory_status = read_memory_breakdown_json(memory_breakdown_path)
+        if memory_status != "valid" and memory_metrics:
+            memory_data = {"phases": memory_metrics}
+            memory_status = "valid"
 
-        # 4. Calculate Cost using Task 1 interval-union model
+        # 4. Resolve live GPU metrics if not explicitly passed
+        active_gpu_metrics = gpu_metrics
+        if active_gpu_metrics is None and self.prom_client is not None:
+            try:
+                active_gpu_metrics = self.prom_client.get_gpu_gauges()
+            except PrometheusUnreachableError as exc:
+                print(f"[WARN] {exc}; continuing without GPU metrics.", file=sys.stderr)
+                active_gpu_metrics = None
+
+        # 5. Calculate Cost using Sprint 1 interval-union model
         cost_summary = self.cost_model.evaluate_dataset(
             csv_requests,
             force_full_time_share=force_full_time_share,
         )
         cost_per_million = cost_summary["cost_per_million_tokens_usd"]
 
-        # 5. Consistency Check: Validate stage times vs total latency
+        # 6. Consistency Check: Validate stage times vs total latency
         total_csv_latency = sum(float(r.get("total_latency_s", 0.0)) for r in csv_requests)
         total_stage_time_sum = 0.0
+        latency_denominator = total_csv_latency
 
         stage_totals: Dict[str, float] = {s: 0.0 for s in STAGE_NAMES if s != "total"}
-        stage_counts: Dict[str, int] = {s: 0 for s in STAGE_NAMES if s != "total"}
         stage_values: Dict[str, List[float]] = {s: [] for s in STAGE_NAMES if s != "total"}
 
         requests_with_traces = 0
-        requests_without_traces = 0
-
-        for r in csv_requests:
-            req_id = str(r.get("request_id", "")).strip()
-            total_lat = float(r.get("total_latency_s", 0.0))
-
-            if req_id in traces_by_req:
+        if has_stage_metrics and stage_metrics is not None:
+            for stage, values in stage_metrics.items():
+                if stage not in stage_totals or stage == "total":
+                    continue
+                mean = float(values.get("mean", 0.0))
+                if math.isfinite(mean) and mean > 0:
+                    stage_totals[stage] = mean
+                    stage_values[stage] = [mean]
+                    total_stage_time_sum += mean
+            total_mean = float(stage_metrics.get("total", {}).get("mean", 0.0))
+            if math.isfinite(total_mean) and total_mean > 0:
+                latency_denominator = total_mean
+            elif csv_requests:
+                latency_denominator = total_csv_latency / len(csv_requests)
+        else:
+            for r in csv_requests:
+                req_id = str(r.get("request_id", "")).strip()
+                joined = joined_requests.get(req_id)
+                if not joined or not joined["traces"]:
+                    continue
                 requests_with_traces += 1
-                req_stages = traces_by_req[req_id]
-                req_stage_sum = 0.0
-
-                for trace in req_stages:
-                    stage = str(trace.get("stage", "")).strip()
-                    dur = float(trace.get("duration_s", 0.0))
-                    if dur < 0:
+                for stage, duration in joined["stages"].items():
+                    if stage not in stage_totals or stage == "total":
                         continue
+                    dur = float(duration)
+                    if not math.isfinite(dur) or dur < 0:
+                        continue
+                    stage_totals[stage] += dur
+                    stage_values[stage].append(dur)
+                    total_stage_time_sum += dur
 
-                    # Omit "total" from stage breakdown sum to prevent double counting
-                    if stage in stage_totals and stage != "total":
-                        stage_totals[stage] += dur
-                        stage_counts[stage] += 1
-                        stage_values[stage].append(dur)
-                        req_stage_sum += dur
-
-                total_stage_time_sum += req_stage_sum
-            else:
-                requests_without_traces += 1
-
-        # 6. Compute Explained Share & Invariant Warning
-        if total_csv_latency > 0 and requests_with_traces > 0:
-            explained_share = total_stage_time_sum / total_csv_latency
+        # 7. Compute Explained Share & Invariant Warning
+        has_stage_data = has_stage_metrics or requests_with_traces > 0
+        if latency_denominator > 0 and has_stage_data:
+            explained_share = total_stage_time_sum / latency_denominator
         else:
             explained_share = 0.0
 
         # Check invariant bounds [0.90, 1.10]
         warning_msg: Optional[str] = None
-        if requests_with_traces > 0 and (explained_share < EXPLAINED_SHARE_MIN or explained_share > EXPLAINED_SHARE_MAX):
+        if has_stage_data and (explained_share < EXPLAINED_SHARE_MIN or explained_share > EXPLAINED_SHARE_MAX):
             warning_msg = (
                 f"Warning: explained_share {explained_share:.4f} is outside nominal bounds "
                 f"[{EXPLAINED_SHARE_MIN}, {EXPLAINED_SHARE_MAX}]. Stage timings do not sum to total request latency."
             )
 
-        # 7. Format Memory & GPU Evidence Snippets
-        def get_memory_evidence_for_stage(stage_name: str) -> str:
-            if memory_status != "valid" or not memory_data:
-                return memory_status
-
-            phases = memory_data.get("phases", {})
-            mib = 1024 * 1024
-            if stage_name == "prefill":
-                act_mib = phases.get("prefill", {}).get("activations", 0) / mib
-                w_mib = phases.get("prefill", {}).get("weights", 0) / mib
-                return f"memory: prefill activations={act_mib:.1f} MiB, weights={w_mib:.1f} MiB"
-            elif stage_name == "decode":
-                kv_mib = phases.get("decode", {}).get("kv_cache", 0) / mib
-                act_mib = phases.get("decode", {}).get("activations", 0) / mib
-                return f"memory: decode kv_cache={kv_mib:.1f} MiB, activations={act_mib:.1f} MiB"
+        # 8. Format Evidence String across the 3 Telemetry Modes
+        def build_evidence_string(
+            stage_name: str,
+            share: float,
+            mean_dur: float,
+            p95_dur: float,
+            count: Optional[int],
+        ) -> str:
+            # Base stage duration evidence
+            stage_metrics_for_evidence = (stage_metrics or {}).get(stage_name, {})
+            if has_stage_metrics:
+                p50 = stage_metrics_for_evidence.get("p50")
+                quantile_evidence = f", p50: {p50:.4f}s" if p50 is not None else ""
+                evidence = (
+                    f"{stage_name} is {share:.1%} of mean latency "
+                    f"(mean {mean_dur:.4f}s{quantile_evidence}, p95 {p95_dur:.4f}s; Prometheus histogram)"
+                )
             else:
-                w_mib = phases.get("prefill", {}).get("weights", 0) / mib
-                peak_kv = phases.get("decode", {}).get("kv_cache", 0) / mib
-                return f"memory: static weights={w_mib:.1f} MiB, peak kv_cache={peak_kv:.1f} MiB"
+                evidence = (
+                    f"{stage_name} is {share:.1%} of mean latency "
+                    f"(mean {mean_dur:.4f}s, p95 {p95_dur:.4f}s across {count} requests)"
+                )
 
-        gpu_evidence_str = ""
-        if gpu_metrics and isinstance(gpu_metrics, dict):
-            util = gpu_metrics.get("gpu_utilization_percent")
-            power = gpu_metrics.get("gpu_power_watts")
-            if util is not None:
-                gpu_evidence_str = f" GPU: {util:.1f}% util"
+            # GPU evidence snippet
+            gpu_snippet = ""
+            has_gpu = False
+            if active_gpu_metrics and isinstance(active_gpu_metrics, dict):
+                util = active_gpu_metrics.get("gpu_utilization_percent")
+                power = active_gpu_metrics.get("gpu_power_watts")
+                memory_used = active_gpu_metrics.get("gpu_memory_used_bytes")
+                gpu_facts = []
+                if util is not None:
+                    gpu_facts.append(f"GPU utilization avg {float(util):.1f}%")
                 if power is not None:
-                    gpu_evidence_str += f", {power:.1f}W"
-                gpu_evidence_str += "."
+                    gpu_facts.append(f"GPU power avg {float(power):.1f}W")
+                if memory_used is not None:
+                    gpu_facts.append(
+                        f"GPU memory avg {float(memory_used) / (1024 * 1024):.1f} MiB"
+                    )
+                if gpu_facts:
+                    has_gpu = True
+                    gpu_snippet = "; " + ", ".join(gpu_facts)
 
-        # 8. Rank Bottlenecks
+            # Memory evidence snippet
+            mem_snippet = ""
+            if memory_status == "valid" and memory_data:
+                phases = memory_data.get("phases", {})
+                mib = 1024 * 1024
+                if stage_name == "prefill":
+                    values = phases.get("prefill", {})
+                    pieces = [
+                        f"{name}={float(values[name]) / mib:.1f} MiB"
+                        for name in ("weights", "activations")
+                        if name in values
+                    ]
+                    if pieces:
+                        mem_snippet = f"; memory: prefill {', '.join(pieces)}"
+                elif stage_name == "decode":
+                    values = phases.get("decode", {})
+                    pieces = [
+                        f"{name}={float(values[name]) / mib:.1f} MiB"
+                        for name in ("kv_cache", "activations")
+                        if name in values
+                    ]
+                    if pieces:
+                        mem_snippet = f"; memory: decode {', '.join(pieces)}"
+                else:
+                    weights = phases.get("prefill", {}).get("weights")
+                    kv_cache = phases.get("decode", {}).get("kv_cache")
+                    pieces = []
+                    if weights is not None:
+                        pieces.append(f"static weights={float(weights) / mib:.1f} MiB")
+                    if kv_cache is not None:
+                        pieces.append(f"peak kv_cache={float(kv_cache) / mib:.1f} MiB")
+                    if pieces:
+                        mem_snippet = f"; memory: {', '.join(pieces)}"
+            elif memory_status != "valid" and memory_breakdown_path and os.path.exists(memory_breakdown_path):
+                mem_snippet = f". [{memory_status}]"
+            else:
+                mem_snippet = ". [memory evidence unavailable]"
+
+            # Combine based on active mode
+            if has_gpu and memory_status == "valid" and mem_snippet:
+                # Mode 3: Stage + GPU + Memory
+                evidence += f"{gpu_snippet}{mem_snippet}."
+            elif has_gpu:
+                # Mode 2: Stage + GPU
+                evidence += f"{gpu_snippet}{mem_snippet}"
+            else:
+                # Mode 1: Stage only
+                evidence += f"{mem_snippet}"
+
+            if share >= DOMINANT_STAGE_THRESHOLD:
+                evidence += " [DOMINANT BOTTLENECK >= 50%]"
+
+            return evidence
+
+        # 9. Rank Bottlenecks
         top_bottlenecks: List[Dict[str, Any]] = []
 
-        if missing_traces_file or requests_with_traces == 0:
+        if missing_traces_file or not has_stage_data:
             top_bottlenecks.append({
                 "rank": 1,
                 "stage": "missing_stage_traces",
@@ -308,8 +368,8 @@ class BottleneckAnalyzer:
         else:
             stage_shares: List[Tuple[str, float]] = []
             for stage, total_dur in stage_totals.items():
-                if total_csv_latency > 0 and total_dur > 0:
-                    share = total_dur / total_csv_latency
+                if latency_denominator > 0 and total_dur > 0:
+                    share = total_dur / latency_denominator
                     stage_shares.append((stage, share))
 
             # Rank by largest share of latency first
@@ -323,16 +383,14 @@ class BottleneckAnalyzer:
                 sorted_v = sorted(vals)
                 p95_idx = max(0, min(int(math.ceil(0.95 * count)) - 1, count - 1)) if count > 0 else 0
                 p95_dur = sorted_v[p95_idx] if count > 0 else 0.0
+                if has_stage_metrics:
+                    metric_values = (stage_metrics or {}).get(stage, {})
+                    p95_dur = float(metric_values.get("p95", p95_dur))
+                    evidence_count: Optional[int] = None
+                else:
+                    evidence_count = count
 
-                stage_mem_ev = get_memory_evidence_for_stage(stage)
-                evidence = (
-                    f"'{stage}' accounts for {share:.1%} of total latency "
-                    f"(mean: {mean_dur:.4f}s, p95: {p95_dur:.4f}s across {count} requests). "
-                    f"[{stage_mem_ev}]{gpu_evidence_str}"
-                )
-
-                if share >= DOMINANT_STAGE_THRESHOLD:
-                    evidence += " [DOMINANT BOTTLENECK >= 50%]"
+                evidence = build_evidence_string(stage, share, mean_dur, p95_dur, evidence_count)
 
                 action = SUGGESTED_ACTIONS.get(
                     stage,
@@ -363,42 +421,8 @@ class BottleneckAnalyzer:
         return output
 
 
-def main() -> None:
-    """CLI entry point for Bottleneck Analyzer."""
-    parser = argparse.ArgumentParser(description="Analyze LLM serving latency bottlenecks and cost.")
-    parser.add_argument("--csv", required=True, help="Path to request log CSV file")
-    parser.add_argument("--traces", default=None, help="Path to per-stage trace JSON lines file")
-    parser.add_argument("--memory-breakdown", default=None, help="Path to optional memory_breakdown.json")
-    parser.add_argument("--config", default=None, help="Path to config.yaml")
-    parser.add_argument("--gpu-price", type=float, default=None, help="Override GPU price per hour USD")
-    parser.add_argument("--full-time-share", action="store_true", help="Force time_share=1.0")
-    parser.add_argument("--out", default=None, help="Path to output JSON file (defaults to stdout)")
-    args = parser.parse_args()
+def main(argv: Optional[List[str]] = None) -> None:
+    """Keep the original analyzer wrapper compatible with the new CLI."""
+    from .cli import main as cli_main
 
-    analyzer = BottleneckAnalyzer(
-        gpu_price_per_hour_usd=args.gpu_price,
-        config_path=args.config,
-        force_full_time_share=args.full_time_share,
-    )
-
-    try:
-        result = analyzer.analyze(
-            csv_path=args.csv,
-            traces_path=args.traces,
-            memory_breakdown_path=args.memory_breakdown,
-        )
-    except Exception as exc:
-        print(f"[ERROR] Bottleneck analysis failed: {exc}", file=sys.stderr)
-        sys.exit(1)
-
-    formatted_json = json.dumps(result, indent=2)
-    if args.out:
-        with open(args.out, "w", encoding="utf-8") as f:
-            f.write(formatted_json + "\n")
-        print(f"[INFO] Analysis saved to {args.out}")
-    else:
-        print(formatted_json)
-
-
-if __name__ == "__main__":
-    main()
+    cli_main(argv)

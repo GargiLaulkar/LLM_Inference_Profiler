@@ -75,6 +75,7 @@
         "y": 1
       },
       "id": 101,
+      "description": "Requires the M4 cost exporter target to be scraped by Prometheus.",
       "options": {
         "minVizHeight": 10,
         "minVizWidth": 10,
@@ -135,6 +136,7 @@
         "y": 1
       },
       "id": 102,
+      "description": "Requires the M4 cost exporter target to be scraped by Prometheus.",
       "options": {
         "legend": {
           "calcs": [
@@ -202,6 +204,7 @@
         "y": 9
       },
       "id": 201,
+      "description": "Requires M2 to expose llmprof_stage_latency_seconds as a histogram.",
       "options": {
         "legend": {
           "calcs": [
@@ -228,7 +231,7 @@
           "refId": "A"
         }
       ],
-      "title": "Per-Stage Latency p95 (llmprof_stage_latency_seconds)",
+      "title": "Per-Stage Latency p95 (requires M2 stage exporter)",
       "type": "timeseries"
     },
     {
@@ -256,6 +259,7 @@
         "y": 9
       },
       "id": 202,
+      "description": "Requires M2 to expose llmprof_request_total_seconds as a histogram.",
       "options": {
         "legend": {
           "calcs": [
@@ -300,7 +304,7 @@
           "refId": "C"
         }
       ],
-      "title": "End-to-End Request Duration Quantiles",
+      "title": "End-to-End Request Duration Quantiles (requires M2 request histogram)",
       "type": "timeseries"
     },
     {

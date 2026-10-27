@@ -23,15 +23,9 @@ import os
 import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import threading
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 import yaml
-
-
-DEFAULT_CONFIG_PATHS = [
-    "config.yaml",
-    "llm_profiler/config.yaml",
-    "../config.yaml",
-]
 
 
 def load_gpu_price_from_config(config_path: Optional[str] = None) -> float:
@@ -41,30 +35,22 @@ def load_gpu_price_from_config(config_path: Optional[str] = None) -> float:
         config_path: Optional explicit path to configuration YAML.
 
     Returns:
-        float: GPU price per hour in USD (defaults to 1.0 if not found).
+        float: GPU price per hour in USD.
     """
-    candidate_paths: List[str] = []
-    if config_path:
-        candidate_paths.append(config_path)
-    candidate_paths.extend(DEFAULT_CONFIG_PATHS)
-
-    for path in candidate_paths:
-        if os.path.exists(path):
-            try:
-                with open(path, "r", encoding="utf-8") as f:
-                    cfg = yaml.safe_load(f) or {}
-                price = cfg.get("gpu_price_per_hour_usd")
-                if price is not None:
-                    parsed = float(price)
-                    if parsed < 0:
-                        raise ValueError(f"gpu_price_per_hour_usd cannot be negative: {parsed}")
-                    return parsed
-            except Exception as exc:
-                if isinstance(exc, ValueError):
-                    raise
-                continue
-
-    return 1.0
+    path = Path(config_path) if config_path else Path(__file__).resolve().parents[2] / "config.yaml"
+    if not path.exists():
+        raise FileNotFoundError(f"Cost configuration file not found: {path}")
+    with path.open("r", encoding="utf-8") as f:
+        cfg = yaml.safe_load(f)
+    if not isinstance(cfg, dict) or "gpu_price_per_hour_usd" not in cfg:
+        raise ValueError(f"{path} must define gpu_price_per_hour_usd")
+    try:
+        parsed = float(cfg["gpu_price_per_hour_usd"])
+    except (TypeError, ValueError) as exc:
+        raise ValueError("gpu_price_per_hour_usd must be a finite non-negative number") from exc
+    if not math.isfinite(parsed) or parsed < 0:
+        raise ValueError("gpu_price_per_hour_usd must be a finite non-negative number")
+    return parsed
 
 
 def compute_interval_union_seconds(intervals: Sequence[Tuple[float, float]]) -> float:
@@ -103,7 +89,7 @@ def compute_interval_union_seconds(intervals: Sequence[Tuple[float, float]]) -> 
 def calculate_request_cost(
     total_latency_s: float,
     output_tokens: int,
-    gpu_price_per_hour_usd: float = 1.0,
+    gpu_price_per_hour_usd: Optional[float] = None,
     prompt_tokens: int = 0,
 ) -> float:
     """Calculate the cost in USD per 1M tokens for a single inference request.
@@ -138,14 +124,19 @@ def calculate_request_cost(
     if prompt_tokens < 0:
         raise ValueError(f"prompt_tokens cannot be negative: {prompt_tokens}")
 
-    if gpu_price_per_hour_usd < 0:
-        raise ValueError(f"gpu_price_per_hour_usd cannot be negative: {gpu_price_per_hour_usd}")
+    price = (
+        load_gpu_price_from_config()
+        if gpu_price_per_hour_usd is None
+        else float(gpu_price_per_hour_usd)
+    )
+    if not math.isfinite(price) or price < 0:
+        raise ValueError("gpu_price_per_hour_usd must be a finite non-negative number")
 
     if output_tokens == 0:
         return 0.0
 
     gpu_hours = total_latency_s / 3600.0
-    request_dollar_cost = gpu_price_per_hour_usd * gpu_hours
+    request_dollar_cost = price * gpu_hours
     cost_per_million = (request_dollar_cost / output_tokens) * 1_000_000.0
     return float(cost_per_million)
 
@@ -168,9 +159,10 @@ class CostModel:
                                    (time_share=1.0) regardless of idle gaps.
         """
         if gpu_price_per_hour_usd is not None:
-            if gpu_price_per_hour_usd < 0:
-                raise ValueError("gpu_price_per_hour_usd cannot be negative")
-            self.gpu_price_per_hour_usd = float(gpu_price_per_hour_usd)
+            price = float(gpu_price_per_hour_usd)
+            if not math.isfinite(price) or price < 0:
+                raise ValueError("gpu_price_per_hour_usd must be a finite non-negative number")
+            self.gpu_price_per_hour_usd = price
         else:
             self.gpu_price_per_hour_usd = load_gpu_price_from_config(config_path)
 
@@ -365,6 +357,8 @@ class CostModel:
             llmprof_cost_per_million_tokens_usd (Gauge, no labels)
         """
         val = cost_per_million_usd if cost_per_million_usd is not None else self._latest_cost_per_million
+        if not math.isfinite(float(val)) or float(val) < 0:
+            raise ValueError("Cost gauge value must be finite and non-negative")
         lines = [
             "# HELP llmprof_cost_per_million_tokens_usd Amortized inference dollar cost per 1M tokens.",
             "# TYPE llmprof_cost_per_million_tokens_usd gauge",

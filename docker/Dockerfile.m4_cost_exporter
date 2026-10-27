@@ -1,0 +1,8 @@
+FROM python:3.13-slim
+
+WORKDIR /workspace
+RUN pip install --no-cache-dir pyyaml==6.0.2
+COPY config.yaml /workspace/config.yaml
+COPY llm_profiler /workspace/llm_profiler
+
+ENTRYPOINT ["python", "-m", "llm_profiler.analyzer.cost_exporter"]
