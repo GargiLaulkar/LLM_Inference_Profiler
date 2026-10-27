@@ -1,0 +1,9 @@
+{
+  "scenario": "normal",
+  "data_source": "synthetic",
+  "injected_stage": null,
+  "delay_s": 0.0,
+  "expected_top_stage": "decode",
+  "expected_warning": false,
+  "requests_count": 25
+}

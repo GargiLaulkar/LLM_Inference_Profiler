@@ -1,0 +1,9 @@
+{
+  "scenario": "network_heavy",
+  "data_source": "synthetic",
+  "injected_stage": "network",
+  "delay_s": 0.6,
+  "expected_top_stage": "network",
+  "expected_warning": false,
+  "requests_count": 25
+}

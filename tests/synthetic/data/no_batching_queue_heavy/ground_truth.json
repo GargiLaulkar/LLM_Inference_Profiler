@@ -1,0 +1,9 @@
+{
+  "scenario": "no_batching_queue_heavy",
+  "data_source": "synthetic",
+  "injected_stage": "queue_wait",
+  "delay_s": 0.8,
+  "expected_top_stage": "queue_wait",
+  "expected_warning": false,
+  "requests_count": 25
+}
