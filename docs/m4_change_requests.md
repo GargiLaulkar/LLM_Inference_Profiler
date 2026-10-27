@@ -48,3 +48,9 @@ cost_exporter:
 ```
 
 `gpu_price_per_hour_usd` is already configured at the root of `config.yaml`. `time_share` is supplied with `M4_TIME_SHARE` or `--time-share`; no default billing share is assumed.
+
+## Sprint 3 E1 integration requests
+
+- **M2 — injection hooks:** Implement and document the proposed `LLMPROF_SLOW_TOKENIZER_MS`, `LLMPROF_NO_BATCHING`, and `LLMPROF_CPU_PREPROCESS_MS` server behavior. Until source implementations are present, M4 reports these hooks as pending and does not run live injections.
+- **M2 — per-request trace output:** The E1 runner starts the server with `LLMPROF_TRACE_PATH` set to a trial-specific JSONL destination. Write one contract trace record per measured stage using `request_id`, `stage`, `start_ts`, `end_ts`, and `duration_s`, correlating requests with the `X-Request-ID` sent by M1. The trace must be complete before the server is stopped.
+- **M3 — power classification (optional):** The M4 evidence rule can call decode power high only when a measured power limit is available. If desired, expose a power-limit gauge so M4 can compare `llmprof_gpu_power_watts` with the device's measured limit; otherwise M4 reports no high-power classification.
