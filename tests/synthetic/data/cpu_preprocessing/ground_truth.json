@@ -1,0 +1,9 @@
+{
+  "scenario": "cpu_preprocessing",
+  "data_source": "synthetic",
+  "injected_stage": "tokenization",
+  "delay_s": 0.4,
+  "expected_top_stage": "tokenization",
+  "expected_warning": false,
+  "requests_count": 25
+}

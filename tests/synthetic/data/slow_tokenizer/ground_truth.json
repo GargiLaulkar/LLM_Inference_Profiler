@@ -1,0 +1,9 @@
+{
+  "scenario": "slow_tokenizer",
+  "data_source": "synthetic",
+  "injected_stage": "tokenization",
+  "delay_s": 0.5,
+  "expected_top_stage": "tokenization",
+  "expected_warning": false,
+  "requests_count": 25
+}

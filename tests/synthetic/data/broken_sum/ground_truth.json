@@ -1,0 +1,8 @@
+{
+  "scenario": "broken_sum",
+  "data_source": "synthetic",
+  "expected_top_stage": "decode",
+  "expected_warning": true,
+  "warning_keyword": "outside nominal bounds",
+  "requests_count": 25
+}

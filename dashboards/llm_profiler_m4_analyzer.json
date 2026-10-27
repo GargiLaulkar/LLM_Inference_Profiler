@@ -1,0 +1,359 @@
+{
+  "__inputs": [],
+  "__requires": [
+    {
+      "type": "grafana",
+      "id": "grafana",
+      "name": "Grafana",
+      "version": "11.5.0"
+    },
+    {
+      "type": "datasource",
+      "id": "prometheus",
+      "name": "Prometheus",
+      "version": "1.0.0"
+    }
+  ],
+  "annotations": {
+    "list": []
+  },
+  "description": "LLM Inference Profiler — Member 4 Analyzer, Cost Model & Latency Bottlenecks Dashboard",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 100,
+      "title": "M4 Inference Cost Model (USD / 1M Tokens)",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 5
+              },
+              {
+                "color": "red",
+                "value": 15
+              }
+            ]
+          },
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 0,
+        "y": 1
+      },
+      "id": 101,
+      "description": "Requires the M4 cost exporter target to be scraped by Prometheus.",
+      "options": {
+        "minVizHeight": 10,
+        "minVizWidth": 10,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "pluginVersion": "11.5.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "llmprof_cost_per_million_tokens_usd",
+          "instant": true,
+          "legendFormat": "Cost per 1M Tokens",
+          "refId": "A"
+        }
+      ],
+      "title": "Current Inference Cost per 1M Tokens",
+      "type": "gauge"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 20,
+            "lineWidth": 2
+          },
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 16,
+        "x": 8,
+        "y": 1
+      },
+      "id": 102,
+      "description": "Requires the M4 cost exporter target to be scraped by Prometheus.",
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "llmprof_cost_per_million_tokens_usd",
+          "legendFormat": "Amortized Cost / 1M Tokens",
+          "refId": "A"
+        }
+      ],
+      "title": "Cost History over Time (USD / 1M Tokens)",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 8
+      },
+      "id": 200,
+      "title": "Per-Stage Latency Decomposition (M2 & M4)",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "fillOpacity": 25,
+            "gradientMode": "opacity",
+            "lineWidth": 2
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 9
+      },
+      "id": 201,
+      "description": "Requires M2 to expose llmprof_stage_latency_seconds as a histogram.",
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "all"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le, stage) (rate(llmprof_stage_latency_seconds_bucket[5m])))",
+          "legendFormat": "{{stage}} (p95)",
+          "refId": "A"
+        }
+      ],
+      "title": "Per-Stage Latency p95 (requires M2 stage exporter)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "fillOpacity": 20,
+            "lineWidth": 2
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 9
+      },
+      "id": 202,
+      "description": "Requires M2 to expose llmprof_request_total_seconds as a histogram.",
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "all"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(llmprof_request_total_seconds_bucket[5m])))",
+          "legendFormat": "Total Latency p50",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(llmprof_request_total_seconds_bucket[5m])))",
+          "legendFormat": "Total Latency p95",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(llmprof_request_total_seconds_bucket[5m])))",
+          "legendFormat": "Total Latency p99",
+          "refId": "C"
+        }
+      ],
+      "title": "End-to-End Request Duration Quantiles (requires M2 request histogram)",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 17
+      },
+      "id": 300,
+      "title": "Bottleneck Analysis & Remediation Rules (M4)",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 24,
+        "x": 0,
+        "y": 18
+      },
+      "id": 301,
+      "options": {
+        "content": "### Top Bottlenecks & Automated Suggested Actions\n\n| Rank | Stage | Primary Cause | Recommended Serving Action |\n|---|---|---|---|\n| **1** | **`prefill`** | High prompt length / quadratic attention | Enable chunked prefill (`--enable-chunked-prefill`), activate prefix caching (`--enable-prefix-caching`), scale tensor parallelism. |\n| **2** | **`decode`** | Autoregressive memory bandwidth saturation | Enable speculative decoding, optimize KV cache block size, reduce max output tokens. |\n| **3** | **`queue_wait`** | High arrival rate exceeding scheduling capacity | Increase concurrency limit (`--max-num-seqs`), scale replicas, optimize KV cache memory allocation. |\n| **4** | **`tokenization`** | CPU string encoding serialization | Switch to fast Rust-based HuggingFace tokenizer, cache tokenized prompts on client/worker. |\n| **5** | **`network`** | Client-server transmission latency / jitter | Colocate client and server in same subnet, enable persistent HTTP keep-alive, switch to gRPC. |\n\n*Evaluated by Member 4 `BottleneckAnalyzer` using offline request traces and Prometheus real-time histograms.*",
+        "mode": "markdown"
+      },
+      "title": "Bottleneck Remediation Reference Matrix",
+      "type": "text"
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 41,
+  "tags": [
+    "llm",
+    "profiler",
+    "analyzer",
+    "cost",
+    "m4"
+  ],
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "title": "LLM Inference Profiler — M4 Analyzer & Cost Model",
+  "uid": "llmprof-m4-analyzer",
+  "version": 1
+}
