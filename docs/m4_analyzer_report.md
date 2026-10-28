@@ -56,6 +56,7 @@ Prefill versus decode memory breakdown: **[PENDING LIVE MEASUREMENT]**. Charts a
 - Injection conclusions depend on which stage M2 attributes each hook to.
 - Cost accounting uses GPU busy time and does not represent all infrastructure costs.
 - Synthetic data validates software behavior only and is not measured system evidence.
+- Memory evidence came from a single Kaggle Tesla T4 run (Qwen2.5-0.5B, 128 prompt / 64 output tokens), reconstructed from exported llmprof_memory_breakdown_bytes values, not from the target RTX 3060.
 
 ## 7. Conclusion and future work
 The analysis path is designed to consume measured files and preserve their evidence without fabricating missing values. Run E1-E6 after the gateway hooks, traces, profiler toggle, and required model variants are available; then replace each pending marker with values from the corresponding real result files.
