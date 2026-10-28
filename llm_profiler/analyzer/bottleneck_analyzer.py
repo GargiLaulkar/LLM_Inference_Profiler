@@ -271,42 +271,16 @@ class BottleneckAnalyzer:
                     has_gpu = True
                     gpu_snippet = "; " + ", ".join(gpu_facts)
 
-            # Memory evidence snippet
+            # Missing or invalid memory is relevant only to measured memory phases.
             mem_snippet = ""
-            if memory_status == "valid" and memory_data:
-                phases = memory_data.get("phases", {})
-                mib = 1024 * 1024
-                if stage_name == "prefill":
-                    values = phases.get("prefill", {})
-                    pieces = [
-                        f"{name}={float(values[name]) / mib:.1f} MiB"
-                        for name in ("weights", "activations")
-                        if name in values
-                    ]
-                    if pieces:
-                        mem_snippet = f"; memory: prefill {', '.join(pieces)}"
-                elif stage_name == "decode":
-                    values = phases.get("decode", {})
-                    pieces = [
-                        f"{name}={float(values[name]) / mib:.1f} MiB"
-                        for name in ("kv_cache", "activations")
-                        if name in values
-                    ]
-                    if pieces:
-                        mem_snippet = f"; memory: decode {', '.join(pieces)}"
-                else:
-                    weights = phases.get("prefill", {}).get("weights")
-                    kv_cache = phases.get("decode", {}).get("kv_cache")
-                    pieces = []
-                    if weights is not None:
-                        pieces.append(f"static weights={float(weights) / mib:.1f} MiB")
-                    if kv_cache is not None:
-                        pieces.append(f"peak kv_cache={float(kv_cache) / mib:.1f} MiB")
-                    if pieces:
-                        mem_snippet = f"; memory: {', '.join(pieces)}"
-            elif memory_status != "valid" and memory_breakdown_path and os.path.exists(memory_breakdown_path):
+            if (
+                stage_name in ("prefill", "decode")
+                and memory_status != "valid"
+                and memory_breakdown_path
+                and os.path.exists(memory_breakdown_path)
+            ):
                 mem_snippet = f". [{memory_status}]"
-            else:
+            elif stage_name in ("prefill", "decode") and memory_status != "valid":
                 mem_snippet = ". [memory evidence unavailable]"
 
             # Combine based on active mode
@@ -345,7 +319,7 @@ class BottleneckAnalyzer:
                 "share_of_latency": 0.0,
                 "evidence": (
                     f"Per-stage trace JSON lines data was not provided or missing for {len(csv_requests)} "
-                    f"requests (memory evidence unavailable)."
+                    "requests."
                 ),
                 "suggested_action": (
                     "Enable per-stage tracing via M2 profiler_exporter (port 9101) or provide "

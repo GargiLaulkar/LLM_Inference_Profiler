@@ -7,7 +7,6 @@ from typing import Any, Dict, List, Optional
 DOMINANT_STAGE_SHARE = 0.50
 LOW_GPU_UTILIZATION_PERCENT = 50.0
 HIGH_GPU_POWER_LIMIT_SHARE = 0.80
-KV_CACHE_PRESSURE_SHARE = 0.50
 
 SUGGESTED_ACTIONS: Dict[str, str] = {
     "prefill": (
@@ -72,22 +71,44 @@ def build_evidence_notes(
                 f"of its measured power limit ({power:.1f}W/{power_limit:.1f}W)"
             )
 
-    if stage == "decode" and batching_enabled is False and memory_data:
-        decode_memory = memory_data.get("phases", {}).get("decode", {})
-        values = {
-            key: float(decode_memory.get(key, 0.0))
+    if stage == "decode" and batching_enabled is False:
+        notes.append("batching is off")
+
+    if stage in ("prefill", "decode") and memory_data:
+        phases = memory_data.get("phases", {})
+        phase = phases.get(stage, {})
+        components = {
+            key: float(phase.get(key, 0.0))
             for key in ("weights", "kv_cache", "activations", "other")
         }
-        measured_total = sum(values.values())
-        kv_cache_share = values["kv_cache"] / measured_total if measured_total > 0 else 0.0
-        if values["kv_cache"] > 0:
-            note = (
-                f"batching is off; decode KV cache is {values['kv_cache'] / (1024 * 1024):.1f} MiB "
-                f"({kv_cache_share:.1%} of measured decode memory)"
-            )
-            if kv_cache_share >= KV_CACHE_PRESSURE_SHARE:
-                note += " and is the largest measured decode-memory component"
-            notes.append(note)
+        measured_total = sum(components.values())
+        if measured_total > 0:
+            shares = {
+                key: value / measured_total
+                for key, value in components.items()
+            }
+            if stage == "prefill":
+                top_components = sorted(
+                    components.items(), key=lambda item: item[1], reverse=True
+                )[:2]
+                top_share_text = ", ".join(
+                    f"{name} {shares[name]:.1%}" for name, _ in top_components
+                )
+                notes.append(
+                    f"prefill memory: {top_share_text}; "
+                    f"activations {shares['activations']:.1%}; "
+                    f"KV cache {shares['kv_cache']:.1%}"
+                )
+            else:
+                top_components = sorted(
+                    components.items(), key=lambda item: item[1], reverse=True
+                )[:2]
+                top_share_text = ", ".join(
+                    f"{name} {shares[name]:.1%}" for name, _ in top_components
+                )
+                notes.append(
+                    f"decode memory: {top_share_text}; KV cache {shares['kv_cache']:.1%}"
+                )
 
     return notes
 
@@ -99,19 +120,8 @@ def build_suggested_action(
     memory_data: Optional[Dict[str, Any]] = None,
     batching_enabled: Optional[bool] = None,
 ) -> str:
-    """Build a remediation tied to the measured stage share and supporting evidence."""
-    action = SUGGESTED_ACTIONS.get(
+    """Return remediation text; supporting evidence is reported separately."""
+    return SUGGESTED_ACTIONS.get(
         stage,
         "Profile server traces and adjust the measured bottleneck's resource allocation.",
     )
-    evidence = build_evidence_notes(
-        stage,
-        share,
-        gpu_metrics=gpu_metrics,
-        memory_data=memory_data,
-        batching_enabled=batching_enabled,
-    )
-    result = f"{stage} share {share:.1%}: {action}"
-    if evidence:
-        result += " Evidence: " + "; ".join(evidence) + "."
-    return result
