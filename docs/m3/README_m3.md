@@ -240,4 +240,22 @@ For the tested 128-in/64-out request, the KV cache and activations together acco
 
 ---
 
-*Last updated: Task 5b completion. All 141 tests pass (5 skipped — live GPU tests).*
+## RTX 3060 Integration Results (M1's machine, 27 Oct 2026)
+
+All steps below were verified by M1 on the project's reference hardware: NVIDIA RTX 3060 6 GB under Docker Compose, vLLM serving `Qwen/Qwen2.5-0.5B-Instruct`.
+
+| Check | Result |
+|-------|--------|
+| GPU collector UP in Prometheus | Confirmed (`job="gpu_collector"`, port 9102) |
+| 8 `llmprof_memory_breakdown_bytes` series | Confirmed (values from Kaggle T4 file) |
+| Grafana GPU Metrics row | Confirmed — utilization max 88% under load, memory 4.17 GiB flat (vLLM preallocates), power max 29.9 W / mean 11.0 W |
+| Grafana Memory Breakdown row | Confirmed — both bar-gauge panels rendered with correct component labels and byte values |
+| Nsight Systems capture | Pending (will update when received from M1) |
+
+Notes: the memory breakdown values shown in Grafana are from the Kaggle T4 run, not the RTX 3060, because the T4 file was used for the integration test. Memory flat at 4.17 GiB reflects vLLM's preallocated KV pool, not request-level allocation.
+
+*Updated: 27 Oct 2026.*
+
+---
+
+*Last updated: RTX 3060 integration results added. All 142 tests pass (5 skipped — live GPU tests).*
