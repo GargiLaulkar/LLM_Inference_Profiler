@@ -14,12 +14,11 @@ from llm_profiler.analyzer.bottleneck_analyzer import BottleneckAnalyzer
 from tests.synthetic.make_synthetic_data import generate_all_synthetic_scenarios
 
 
-@pytest.fixture(scope="module")
-def synthetic_manifest():
-    """Ensure seeded synthetic datasets exist and return manifest."""
-    data_dir = os.path.join(os.path.dirname(__file__), "synthetic", "data")
-    manifest = generate_all_synthetic_scenarios(base_dir=data_dir, num_requests=25)
-    return manifest
+@pytest.fixture
+def synthetic_manifest(tmp_path):
+    """Generate seeded fixtures under pytest's temporary directory."""
+    data_dir = tmp_path / "synthetic-data"
+    return generate_all_synthetic_scenarios(base_dir=str(data_dir), num_requests=25)
 
 
 @pytest.mark.parametrize("scenario_name", [

@@ -39,6 +39,12 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from .cost_model import CostModel, load_gpu_price_from_config
+from .actions import (
+    DOMINANT_STAGE_SHARE,
+    SUGGESTED_ACTIONS,
+    build_evidence_notes,
+    build_suggested_action,
+)
 from .readers import (
     PrometheusClient,
     PrometheusUnreachableError,
@@ -50,42 +56,11 @@ from .readers import (
 from ..instrumentation.stage_timing import STAGE_NAMES, STAGE_NAME_SET
 
 # Dominant stage threshold: if a stage accounts for >= 50% of latency, it is dominant.
-DOMINANT_STAGE_THRESHOLD = 0.50
+DOMINANT_STAGE_THRESHOLD = DOMINANT_STAGE_SHARE
 
 # Invariant bounds for explained_share: flag warning if outside [0.9, 1.1]
 EXPLAINED_SHARE_MIN = 0.90
 EXPLAINED_SHARE_MAX = 1.10
-
-SUGGESTED_ACTIONS: Dict[str, str] = {
-    "prefill": (
-        "Enable chunked prefill (--enable-chunked-prefill), utilize prompt prefix caching "
-        "(--enable-prefix-caching), optimize prompt token length, or scale tensor parallelism."
-    ),
-    "decode": (
-        "Enable speculative decoding, optimize KV cache block size, raise tensor parallelism, "
-        "or restrict generation max_tokens to prevent autoregressive memory bandwidth saturation."
-    ),
-    "queue_wait": (
-        "Increase serving concurrency (--max-num-seqs), scale out server replicas behind a "
-        "load balancer, optimize KV cache memory allocation, or apply client rate limiting."
-    ),
-    "tokenization": (
-        "Switch to a fast Rust-based HuggingFace tokenizer, cache tokenized prompts on client/worker, "
-        "or offload tokenization off the serving critical path."
-    ),
-    "detokenization": (
-        "Stream incremental tokens directly to client, batch UTF-8 detokenization passes, "
-        "or offload detokenization to client."
-    ),
-    "network": (
-        "Colocate client and inference server within the same VPC/subnet, enable persistent HTTP "
-        "keep-alive connection pooling, or migrate to gRPC / HTTP/2 transport."
-    ),
-    "total": (
-        "Investigate cumulative end-to-end stack latency across all compute and communication stages."
-    ),
-}
-
 
 def parse_memory_breakdown(
     memory_breakdown_path: Optional[str | Path],
@@ -130,6 +105,7 @@ class BottleneckAnalyzer:
         memory_metrics: Optional[Dict[str, Dict[str, float]]] = None,
         max_bottlenecks: int = 3,
         force_full_time_share: Optional[bool] = None,
+        batching_enabled: Optional[bool] = None,
     ) -> Dict[str, Any]:
         """Analyze request CSV and per-stage traces, returning contract JSON.
 
@@ -147,6 +123,7 @@ class BottleneckAnalyzer:
             memory_metrics: Optional Prometheus memory gauges grouped by phase.
             max_bottlenecks: Number of top bottlenecks to rank (default 3).
             force_full_time_share: Optional override for time_share=1.0.
+            batching_enabled: Whether batching was enabled for this measured run.
 
         Returns:
             Dictionary strictly adhering to the contract JSON schema.
@@ -346,6 +323,16 @@ class BottleneckAnalyzer:
             if share >= DOMINANT_STAGE_THRESHOLD:
                 evidence += " [DOMINANT BOTTLENECK >= 50%]"
 
+            rule_evidence = build_evidence_notes(
+                stage_name,
+                share,
+                gpu_metrics=active_gpu_metrics,
+                memory_data=memory_data if memory_status == "valid" else None,
+                batching_enabled=batching_enabled,
+            )
+            if rule_evidence:
+                evidence += "; " + "; ".join(rule_evidence)
+
             return evidence
 
         # 9. Rank Bottlenecks
@@ -392,9 +379,12 @@ class BottleneckAnalyzer:
 
                 evidence = build_evidence_string(stage, share, mean_dur, p95_dur, evidence_count)
 
-                action = SUGGESTED_ACTIONS.get(
+                action = build_suggested_action(
                     stage,
-                    "Profile server kernel traces and adjust hardware resource allocation.",
+                    share,
+                    gpu_metrics=active_gpu_metrics,
+                    memory_data=memory_data if memory_status == "valid" else None,
+                    batching_enabled=batching_enabled,
                 )
 
                 top_bottlenecks.append({
