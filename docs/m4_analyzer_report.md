@@ -1,133 +1,61 @@
-# Member 4 Comprehensive Validation & Analyzer Report
+# M4 analyzer report
 
-**Project 6: Inference Cost and Latency Profiler for LLM Serving Stacks**  
-**Role:** Member M4 (Analyzer and Validation Lead)  
-**Branch:** `m4-analyzer-validation`  
-**Host Target:** Windows 11 / NVIDIA GeForce RTX 3060 (6GB VRAM) / Python 3.13.1  
-**Reference Model:** `Qwen/Qwen2.5-0.5B-Instruct`  
-**Data Source Status:** Synthetic test datasets (live experiments pending full cluster launch)  
+## 1. Problem and research question
+This work evaluates whether per-stage timing and cost information can identify latency bottlenecks in LLM serving, first with synthetic contract validation and later with measured live requests.
 
----
+## 2. Design and architecture
+The analyzer consumes request CSVs, per-stage trace JSONL, and optional GPU/memory telemetry. It correlates requests and traces, ranks measured stages, checks explained share, and calculates GPU-time cost. Synthetic checks validate code paths only; they are not live performance evidence.
 
-## 1. Executive Summary
-Member 4 delivered the **Analyzer and Validation** tier of the inference profiler. Building upon the platform container definitions from M1, per-stage timing primitives from M2, and GPU telemetry collectors from M3, M4 implemented:
+## 3. Implementation per component
+- `llm_profiler/analyzer/bottleneck_analyzer.py`: ranks stages and reports explained share, evidence, and suggested actions.
+- `llm_profiler/analyzer/cost_model.py`: calculates amortized cost from GPU busy time and produced tokens.
+- `llm_profiler/analyzer/readers.py`: reads the request, trace, and optional telemetry contracts.
+- `llm_profiler/experiments/run_injection_validation.py`: runs the local E1 harness when M2 hooks are available.
+- `llm_profiler/experiments/analyze_run_dir.py`: analyzes externally supplied E1 run folders without starting the stack.
+- `llm_profiler/experiments/run_experiments.py`: prepares the E2-E5 scenario matrix.
+- `llm_profiler/experiments/run_overhead.py`: defines the E6 measurement modes and checks live readiness.
 
-1. **Inference Cost Model** (`llm_profiler/analyzer/cost_model.py`):
-   Dynamically binds to `config.yaml` to calculate inference monetary cost in USD per 1M tokens produced. Implements active `time_share` interval unions so concurrent requests in the same batch are not double counted.
-2. **Bottleneck Analyzer & Consistency Validator** (`llm_profiler/analyzer/bottleneck_analyzer.py`):
-   Cross-references request log CSVs and per-stage JSON lines traces, strictly verifies whether stage durations account for total request latency (`explained_share`), detects unexplained residual latency, ranks the top 3 bottlenecks with empirical evidence, maps domain-specific remediation actions, and accepts optional GPU metrics and `memory_breakdown.json`.
-3. **Bottleneck Injection Framework** (`llm_profiler/analyzer/bottleneck_injector.py`):
-   Provides controlled synthetic latency injection across canonical stages. Serves as a software sanity check to verify that the Analyzer elevates anomalous stages to Rank #1. Real-world physical bottleneck injection requires Member 2 server hooks.
-4. **Experiment Suite E1 to E6** (`llm_profiler/experiments/run_experiments_e1_to_e6.py`):
-   Structured according to the team handbook (E1: Injected-bottleneck detection, E2: Load level RPS, E3: Length mix, E4: Batching on/off, E5: Model size, E6: Profiler overhead).
-5. **Instrumentation Microbenchmark** (`llm_profiler/experiments/measure_overhead.py`):
-   Quantifies microsecond-level overhead of `StageTimer` context managers and `MetricRegistry` updates (<0.20% overhead on a 100ms request).
-6. **M4 Grafana Observability Dashboard** (`dashboards/llm_profiler_m4_analyzer.json`):
-   Provides dedicated Grafana panels for `llmprof_cost_per_million_tokens_usd`, latency breakdowns, and remediation rules.
-7. **Upstream Change Requests** (`docs/m4_change_requests.md`):
-   Documents formal integration change requests CR-01 through CR-04 without modifying any existing files written by M1, M2, or M3.
+## 4. Experiments E1-E6
+- **E1, injected-bottleneck detection:** Live measurement is pending M2 hooks and trace output. Synthetic checks are not live results.
+- **E2, load level:** Live RPS comparisons are `[PENDING LIVE MEASUREMENT]`.
+- **E3, prompt/output mix:** Live length comparisons are `[PENDING LIVE MEASUREMENT]`.
+- **E4, batching on/off:** Live comparison is `[PENDING LIVE MEASUREMENT]` pending a reliable server-side batching control.
+- **E5, model size:** Live comparison is `[PENDING LIVE MEASUREMENT]` pending a second model confirmed to fit the GPU.
+- **E6, profiler overhead:** Profiler OFF means the gateway/server handles requests in pass-through mode with stage timing, trace writing, and metric ingest disabled. Profiler ON means all three are enabled. Both trials use the same gateway and load-generator workload; their difference isolates profiler cost. An optional direct-to-vLLM versus through-the-gateway comparison measures gateway overhead separately. Live comparison is `[PENDING LIVE MEASUREMENT]` pending `LLMPROF_PROFILER_ENABLED=0|1`.
 
----
+## 5. Results
+No synthetic performance values are reported here as results. All live result fields remain `[PENDING LIVE MEASUREMENT]` until sourced from measured result files.
 
-## 2. Shared Contract Compliance Matrix
+### Cost per 1M output tokens
+The cost formula is:
 
-| Shared Contract | Required Specification | Member 4 Implementation & File | Status |
-|---|---|---|---|
-| **Canonical Stage Names** | `tokenization`, `queue_wait`, `prefill`, `decode`, `detokenization`, `network`, `total` | Imported and validated via `llm_profiler.instrumentation.stage_timing.STAGE_NAMES` | **100% COMPLIANT** |
-| **Prometheus Cost Metric** | `llmprof_cost_per_million_tokens_usd` (Gauge, no labels) | Implemented in `CostModel.render_prometheus_metrics` and `StandaloneCostExporter` | **100% COMPLIANT** |
-| **Request Log CSV Schema** | `request_id,send_ts,end_ts,total_latency_s,prompt_tokens,output_tokens,status,target_rps,scenario_tag` | Strictly validated by `check_contracts.py` in `test_bottleneck_injector.py` | **100% COMPLIANT** |
-| **Per-Stage Trace JSONL** | Fields: `request_id, stage, start_ts, end_ts, duration_s` | Generated by `BottleneckInjector` and consumed by `BottleneckAnalyzer` | **100% COMPLIANT** |
-| **Analyzer Output Schema** | `{"top_bottlenecks":[{"rank":1,"stage":"...","share_of_latency":0.0,"evidence":"...","suggested_action":"..."}],"cost_per_million_tokens_usd":0.0,"explained_share":0.0}` | Exact output dictionary produced by `BottleneckAnalyzer.analyze()` | **100% COMPLIANT** |
-| **Zero Hardcoded Values** | Model name, server URLs, GPU pricing, scrape intervals from `config.yaml` | `load_gpu_price_from_config()` dynamically reads `config.yaml` (`gpu_price_per_hour_usd: 1.0`) | **100% COMPLIANT** |
-| **Rule 1 (File Isolation)** | Never modify existing files from M1, M2, M3 | 0 edits to existing files; changes logged in `docs/m4_change_requests.md` | **100% COMPLIANT** |
-| **Rule 6 (Data Integrity)** | Verify stage sums equal total latency; report missing data explicitly | `explained_share` validated with warnings outside `[0.90, 1.10]`; missing data clearly flagged | **100% COMPLIANT** |
+`GPU price per hour × GPU busy hours ÷ output tokens produced × 1,000,000`
 
----
+`GPU busy hours` is the wall-clock request window multiplied by `time_share`. The default `time_share` is based on the union of active request intervals, so overlapping requests are not double counted. A dedicated-instance setting may use a full window share.
 
-## 3. Cost Model Formulation & Synthetic Benchmark Results
+Measured cost per 1M output tokens: **[PENDING LIVE MEASUREMENT]**.
 
-### 3.1 Mathematical Formulation
-$$\text{cost\_per\_million\_tokens\_usd} = \frac{\text{gpu\_price\_per\_hour\_usd} \times \text{gpu\_hours\_used}}{\text{tokens\_produced}} \times 1{,}000{,}000$$
+### Explained share and detection
+Per-run explained share, top-1 accuracy, top-3 hit rate, and the control false-positive check: **[PENDING LIVE MEASUREMENT]**.
 
-$$\text{gpu\_hours\_used} = \left(\frac{\text{wall\_clock\_window\_seconds}}{3600.0}\right) \times \text{time\_share}$$
+### E6 overhead
+Profiler overhead and the 5% target result: **[PENDING LIVE MEASUREMENT]**. The dry-run validates output shape only and reports no performance measurements.
 
-Where:
-- `tokens_produced` = $\sum \text{output\_tokens}$ of successful requests (`status == "ok"`).
-- `wall_clock_window_seconds` = $\max(end\_ts) - \min(send\_ts)$ across successful requests.
-- `time_share` = $\text{active\_seconds} / \text{wall\_clock\_window\_seconds}$ (union of intervals, preventing double-counting overlapping requests).
-- Dedicated instance billing can be toggled via `--full-time-share` (`time_share = 1.0`).
+### Memory breakdown
+Prefill versus decode memory breakdown: **[PENDING LIVE MEASUREMENT]**. Charts are skipped when the real `memory_breakdown.json` file is absent.
 
-### 3.2 Synthetic Workload Scaling Comparison (RTX 3060 @ $1.00/hour)
-*Note: All current results are generated from calibrated synthetic workloads (`data_source: synthetic`). Live measurements are scheduled for the live deployment phase.*
+### B1 vs B2 vs B3
+- B1, manual timing: **[PENDING LIVE MEASUREMENT]** from M1's baseline files.
+- B2, stack-native metrics: **[PENDING LIVE MEASUREMENT]** from M1's B2 artifacts or Prometheus data.
+- B3, profiler: **[PENDING LIVE MEASUREMENT]** from the profiler's live run files.
 
-| Scenario Name | Target RPS | Prompt Tokens | Output Tokens | Total Tokens / Req | Cost per 1M Tokens (USD) | Primary Operational Character |
-|---|---|---|---|---|---|---|
-| `short_prompt` | 2.0 | 32 | 64 | 96 | **$0.2486** | High per-token overhead; decode bounded |
-| `medium_load` | 5.0 | 128 | 64 | 192 | **$0.1743** | Balanced conversational throughput |
-| `rps_10` | 10.0 | 128 | 64 | 192 | **$0.2115** | Contention penalty: queue wait inflates total window |
-| `long_output` | 2.0 | 128 | 256 | 384 | **$0.2461** | Sequential autoregressive token sampling bound |
-| `long_prompt` | 2.0 | 1024 | 64 | 1088 | **$0.1082** | **Most Cost Effective**: High parallel prefill throughput |
+## 6. Limitations
+- Single-GPU testing limits generalization to multi-GPU deployments.
+- A small model and GPU memory constraints limit model-size comparisons.
+- Localhost/gateway topology may not represent remote network latency.
+- Injection conclusions depend on which stage M2 attributes each hook to.
+- Cost accounting uses GPU busy time and does not represent all infrastructure costs.
+- Synthetic data validates software behavior only and is not measured system evidence.
 
----
-
-## 4. Bottleneck Analysis & Consistency Validation
-
-### 4.1 Consistency Invariant: `explained_share`
-$$\text{explained\_share} = \frac{\sum_{s \in \text{stages}} \sum_{i=1}^N \text{duration}(s)_i}{\sum_{i=1}^N \text{total\_latency\_s}_i}$$
-
-- **Nominal Range**: `0.90 <= explained_share <= 1.10`.
-- **Invariant Warning**: If `explained_share < 0.90` or `explained_share > 1.10`, the Analyzer emits an explicit warning in the output:
-  `"Warning: explained_share {val} is outside nominal bounds [0.90, 1.10]. Stage timings do not sum to total request latency."`
-- **Missing Traces**: When per-stage traces are not provided, the Analyzer reports `missing_stage_traces` with `explained_share = 0.0` rather than fabricating numbers.
-
-### 4.2 Dominant Stage Threshold
-If a stage accounts for $\ge 50\%$ of latency (`DOMINANT_STAGE_THRESHOLD = 0.50`), it is classified as `[DOMINANT BOTTLENECK >= 50%]`, guiding engineers toward high-impact optimizations.
-
----
-
-## 5. Experiment Findings (Handbook IDs E1 to E6)
-
-### Experiment E1: Injected-Bottleneck Detection
-- **Data Source**: `synthetic`
-- **Methodology**: Synthetic sanity check inserting controlled delays (+0.50s to +0.80s) into `tokenization`, `queue_wait`, `prefill`, `decode`, and `network`.
-- **Status**: 100% detection rate under synthetic injector testing. Real-world E1 validation on live serving infrastructure requires Member 2 stage instrumentation hooks.
-
-### Experiment E2: Load Level Scaling (RPS 1 vs 5 vs 10)
-- **Data Source**: `synthetic`
-- **Findings**: At 1 RPS compute stages (`decode` 66%, `prefill` 19%) dominate. At 10 RPS, arrival rate causes queue backlog, elevating `queue_wait` to 28% of request latency.
-
-### Experiment E3: Prompt/Output Length Mix
-- **Data Source**: `synthetic`
-- **Findings**:
-  - Scaling prompt tokens (32 to 1024) expands `prefill` share from 7.4% to 78.2% (elevating `prefill` to dominant Rank #1).
-  - Scaling output tokens (64 to 256) expands `decode` share to 87.5% (elevating `decode` to dominant Rank #1).
-
-### Experiment E4: Batching On vs Off
-- **Status**: `pending_live` (`data_source: synthetic`)
-- **Note**: [PENDING LIVE MEASUREMENT] Requires toggling live vLLM runtime parameters (`--max-num-seqs 1` vs dynamic continuous batching) on the active server.
-
-### Experiment E5: Model Size Comparison
-- **Status**: `pending_live` (`data_source: synthetic`)
-- **Note**: [PENDING LIVE MEASUREMENT] Requires loading multiple parameter sizes (e.g. Qwen2.5-0.5B vs 1.5B) under RTX 3060 6GB VRAM allocation limits.
-
-### Experiment E6: Profiler Overhead On vs Off
-- **Data Source**: `synthetic` (Instrumentation Microbenchmark)
-- **Status**: Microbenchmark completed; live client-server benchmark [PENDING LIVE MEASUREMENT].
-- **Microbenchmark Results** (10,000 iterations):
-  - Raw uninstrumented loop: 0.85 &mu;s / request
-  - Stage timers + trace objects: 35.14 &mu;s / request (+34.29 &mu;s)
-  - Full Prometheus metrics recording: 194.53 &mu;s / request (+193.68 &mu;s)
-  - Relative overhead on a 100ms request: **0.194%** (< 1.0% negligible threshold)
-
----
-
-## 6. Test Suite & Verification Summary
-All unit and integration tests across the repository pass cleanly:
-- `tests/test_cost_model.py`: 10 passed
-- `tests/test_bottleneck_analyzer.py`: 5 passed
-- `tests/test_bottleneck_injector.py`: 8 passed
-- `tests/test_synthetic_scenarios.py`: 9 passed
-- `tests/test_measure_overhead.py`: 1 passed
-- `tests/test_experiments_e1_to_e6.py`: 7 passed
-- Upstream M1/M2/M3 test suites: 142 passed, 5 skipped (GPU device check skips when no CUDA device is present)
-- **Total: 182 passed, 5 skipped, 0 failures**.
+## 7. Conclusion and future work
+The analysis path is designed to consume measured files and preserve their evidence without fabricating missing values. Run E1-E6 after the gateway hooks, traces, profiler toggle, and required model variants are available; then replace each pending marker with values from the corresponding real result files.
