@@ -1,103 +1,51 @@
-# M4 Bottleneck Injection Plan (Answer Key for Member 2)
+# M4 Bottleneck Injection Plan
 
 **Project 6: Inference Cost and Latency Profiler for LLM Serving Stacks**  
-**Role:** Member M4 (Analyzer and Validation Lead) &rarr; Member M2 (Instrumentation Lead)  
-**Document:** Bottleneck Injection Answer Key and Verification Matrix  
+**Role:** M4 (Analyzer and Validation Lead)
+**Status:** Proposed validation contract for M2 hooks; no injection runs have been performed.
 
----
+The environment variables below are proposals, not yet implemented by M2. With no injection variable set, server behavior must remain unchanged. The analyzer must not report an injected stage as dominant during the control run.
 
-## 1. Overview
-This document serves as the formal **Answer Key** provided by Member 4 to Member 2. It specifies synthetic and server-side latency injection scenarios used to validate that stage instrumentation and the offline Bottleneck Analyzer accurately pinpoint serving anomalies.
+## Scenarios and validation
 
-For each scenario, this document defines:
-1. The proposed configuration flag name for `config.yaml` or CLI arguments.
-2. The expected Rank #1 bottleneck stage.
-3. The expected empirical evidence emitted by the Analyzer.
-4. The strict Pass/Fail validation rule.
+### Control: no injection
 
----
+- **Setting:** None of the `LLMPROF_*` variables below are set.
+- **Expected top stage:** The stage actually measured as largest; `decode` is the synthetic baseline expectation.
+- **Expected evidence:** Normal measured stage breakdown, with no injected delay or injection-specific dominant-stage evidence.
+- **Pass:** The analyzer reports measured stage data and the `explained_share` invariant is within `[0.90, 1.10]`; no injected stage is flagged as dominant.
+- **Fail:** Any injection hook changes behavior when unset, or the analyzer attributes a synthetic injected delay to a stage.
 
-## 2. Injection Scenarios & Answer Key
+### Slow tokenizer
 
-### Scenario 0: No-Injection Control Baseline
-- **Description**: Standard reference inference serving with zero injected faults. Serves as the ground-truth control.
-- **Proposed Config Key**:
-  ```yaml
-  injection:
-    enabled: false
-    scenario: "none"
-  ```
-- **Expected Top Stage**: **`decode`** (for standard conversational workloads with 128 prompt / 64 output tokens on RTX 3060).
-- **Expected Evidence**:
-  `'decode' accounts for 60%–70% of total latency (mean: ~0.080s across requests). [memory evidence unavailable] [DOMINANT BOTTLENECK >= 50%]`
-- **Pass/Fail Rule**:
-  - **PASS**: `explained_share` is between `0.90` and `1.10`; Rank #1 stage is `decode` (or `prefill` if prompt > 512 tokens); no artificial queue or tokenization delays detected.
-  - **FAIL**: Uninstrumented stage dominates, or `explained_share` falls outside `[0.90, 1.10]`.
+- **Variable:** `LLMPROF_SLOW_TOKENIZER_MS` — adds a delay in milliseconds in the tokenization stage.
+- **Expected top stage:** `tokenization`.
+- **Expected evidence:** Tokenization is the largest latency share; at the proposed 500 ms setting it should exceed 50% of total latency and be marked dominant.
+- **Pass:** `tokenization` ranks first with `share_of_latency > 0.50`, and the suggested action recommends a faster tokenizer, caching, or off-path tokenization.
+- **Fail:** Tokenization does not rank first or its share is at or below 0.50.
 
----
+### No batching / queue saturation
 
-### Scenario 1: Slow Tokenizer Anomaly
-- **Description**: Simulates a heavy, unoptimized, or uncompiled pure-Python tokenizer performing quadratic vocabulary lookups or un-cached regex tokenization.
-- **Proposed Config Key**:
-  ```yaml
-  injection:
-    enabled: true
-    scenario: "slow_tokenizer"
-    delay_s: 0.50
-    target_stage: "tokenization"
-  ```
-- **Expected Top Stage**: **`tokenization`**
-- **Expected Evidence**:
-  `'tokenization' accounts for >65% of total latency (mean: ~0.501s across requests). [memory evidence unavailable] [DOMINANT BOTTLENECK >= 50%]`
-- **Pass/Fail Rule**:
-  - **PASS**: `tokenization` is ranked **Rank #1** with $\text{share\_of\_latency} > 0.50$; Analyzer suggested action prescribes: *"Switch to a fast Rust-based HuggingFace tokenizer, cache tokenized prompts on client/worker, or offload tokenization off the serving critical path."*
-  - **FAIL**: `tokenization` is ranked lower than Rank #1 or share < 0.50.
+- **Variable:** `LLMPROF_NO_BATCHING` — when set to `1`, disables batching or forces one request at a time.
+- **Expected top stage:** `queue_wait`.
+- **Expected evidence:** Queue wait is the largest latency share; at the proposed 800 ms equivalent delay it should exceed 60% of total latency and be marked dominant.
+- **Pass:** `queue_wait` ranks first with `share_of_latency > 0.60`, and the suggested action addresses concurrency, scaling, KV cache allocation, or rate limiting.
+- **Fail:** Queue wait does not rank first.
+- **Open question for M1/M2:** Disabling batching may require a server start argument (for example, vLLM's maximum concurrent sequences) rather than only an environment variable. M1 and M2 must decide how `LLMPROF_NO_BATCHING=1` is implemented.
 
----
+### CPU-bound preprocessing
 
-### Scenario 2: No Batching / Concurrency Saturation (`no_batching_queue_heavy`)
-- **Description**: Simulates serving without continuous batching or with `--max-num-seqs 1`, forcing incoming requests into an accumulating FIFO wait queue.
-- **Proposed Config Key**:
-  ```yaml
-  injection:
-    enabled: true
-    scenario: "no_batching"
-    delay_s: 0.80
-    target_stage: "queue_wait"
-  ```
-- **Expected Top Stage**: **`queue_wait`**
-- **Expected Evidence**:
-  `'queue_wait' accounts for >70% of total latency (mean: ~0.812s across requests). [memory evidence unavailable] [DOMINANT BOTTLENECK >= 50%]`
-- **Pass/Fail Rule**:
-  - **PASS**: `queue_wait` is ranked **Rank #1** with $\text{share\_of\_latency} > 0.60$; Analyzer suggested action prescribes: *"Increase serving concurrency (--max-num-seqs), scale out server replicas behind a load balancer, optimize KV cache memory allocation, or apply client rate limiting."*
-  - **FAIL**: `queue_wait` is ranked lower than Rank #1.
+- **Variable:** `LLMPROF_CPU_PREPROCESS_MS` — adds CPU-bound busy work in milliseconds before tokenization.
+- **Expected top stage:** `tokenization`, assuming M2 attributes preprocessing time to tokenization. If M2 instruments preprocessing separately, the attributed preprocessing stage is expected to rank first instead.
+- **Expected evidence:** The stage that M2 attributes the preprocessing work to is the largest latency share; at the proposed 400 ms setting it should exceed 50% of total latency and be marked dominant.
+- **Pass:** Tokenization ranks first under the stated attribution assumption (or the separately instrumented preprocessing stage does), and `explained_share` remains within `[0.90, 1.10]`.
+- **Fail:** The measured preprocessing delay is not reflected in the attributed stage or that stage does not rank first.
 
----
+## Summary
 
-### Scenario 3: CPU-Bound Preprocessing
-- **Description**: Simulates computationally heavy CPU preprocessing tasks (e.g., synchronous document normalization, JSON formatting, or content moderation) preceding tokenization and inference.
-- **Proposed Config Key**:
-  ```yaml
-  injection:
-    enabled: true
-    scenario: "cpu_preprocessing"
-    delay_s: 0.40
-    target_stage: "tokenization"
-  ```
-- **Expected Top Stage**: **`tokenization`**
-- **Expected Evidence**:
-  `'tokenization' accounts for >55% of total latency (mean: ~0.401s across requests). [memory evidence unavailable] [DOMINANT BOTTLENECK >= 50%]`
-- **Pass/Fail Rule**:
-  - **PASS**: `tokenization` is ranked **Rank #1**; Analyzer flags the stage as dominant; `explained_share` remains within nominal bounds `[0.90, 1.10]`.
-  - **FAIL**: Stage time fails to correlate with total latency increase or fails to elevate to Rank #1.
-
----
-
-## 3. Verification Protocol Summary Table
-
-| Scenario | Injected Delay | Target Stage | Expected Rank 1 | Dominant Check | Expected Explained Share |
-|---|---|---|---|---|---|
-| **Control Baseline** | 0.0s | N/A | `decode` | Yes ($\ge 50\%$) | $0.90 \le \text{share} \le 1.10$ |
-| **Slow Tokenizer** | +0.50s | `tokenization` | `tokenization` | Yes ($> 65\%$) | $0.90 \le \text{share} \le 1.10$ |
-| **No Batching** | +0.80s | `queue_wait` | `queue_wait` | Yes ($> 70\%$) | $0.90 \le \text{share} \le 1.10$ |
-| **CPU Preprocessing** | +0.40s | `tokenization` | `tokenization` | Yes ($> 55\%$) | $0.90 \le \text{share} \le 1.10$ |
+| Scenario | Proposed setting | Expected top stage | Dominant-stage validation |
+|---|---|---|---|
+| Control | None of the variables set | Measured baseline (synthetic expectation: `decode`) | No injection-induced dominant stage |
+| Slow tokenizer | `LLMPROF_SLOW_TOKENIZER_MS=500` | `tokenization` | Share > 0.50 |
+| No batching | `LLMPROF_NO_BATCHING=1` | `queue_wait` | Share > 0.60 |
+| CPU preprocessing | `LLMPROF_CPU_PREPROCESS_MS=400` | `tokenization` by assumption; otherwise M2's preprocessing stage | Share > 0.50 |

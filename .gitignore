@@ -20,6 +20,7 @@ results/deep_dive/*
 llm_profiler/results/*.csv
 !llm_profiler/results/sample_*.csv
 !llm_profiler/results/.gitkeep
+experiments/results/
 
 # Model caches and checkpoints
 .cache/

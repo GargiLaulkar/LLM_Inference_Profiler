@@ -219,10 +219,11 @@ def test_analyzer_stage_gpu_and_memory_evidence_modes(tmp_path):
 
     assert stage_only["top_bottlenecks"][0]["stage"] == "queue_wait"
     assert "queue_wait is 62.0% of mean latency" in stage_only["top_bottlenecks"][0]["evidence"]
-    assert "memory evidence unavailable" in stage_only["top_bottlenecks"][0]["evidence"]
+    assert "memory" not in stage_only["top_bottlenecks"][0]["evidence"]
     assert "GPU utilization avg 31.0%" in stage_gpu["top_bottlenecks"][0]["evidence"]
     assert "memory: decode" not in stage_gpu["top_bottlenecks"][0]["evidence"]
-    assert "memory: prefill" in stage_gpu_memory["top_bottlenecks"][1]["evidence"]
+    assert "prefill memory:" in stage_gpu_memory["top_bottlenecks"][1]["evidence"]
+    assert "memory" not in stage_gpu_memory["top_bottlenecks"][0]["evidence"]
 
 
 def test_prometheus_stage_summary_analyzes_histogram_means(tmp_path):

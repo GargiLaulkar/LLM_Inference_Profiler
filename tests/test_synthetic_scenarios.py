@@ -14,12 +14,11 @@ from llm_profiler.analyzer.bottleneck_analyzer import BottleneckAnalyzer
 from tests.synthetic.make_synthetic_data import generate_all_synthetic_scenarios
 
 
-@pytest.fixture(scope="module")
-def synthetic_manifest():
-    """Ensure seeded synthetic datasets exist and return manifest."""
-    data_dir = os.path.join(os.path.dirname(__file__), "synthetic", "data")
-    manifest = generate_all_synthetic_scenarios(base_dir=data_dir, num_requests=25)
-    return manifest
+@pytest.fixture
+def synthetic_manifest(tmp_path):
+    """Generate seeded fixtures under pytest's temporary directory."""
+    data_dir = tmp_path / "synthetic-data"
+    return generate_all_synthetic_scenarios(base_dir=str(data_dir), num_requests=25)
 
 
 @pytest.mark.parametrize("scenario_name", [
@@ -74,8 +73,10 @@ def test_memory_breakdown_unavailable_when_absent(synthetic_manifest):
     analyzer = BottleneckAnalyzer(gpu_price_per_hour_usd=1.0)
     result = analyzer.analyze(item["csv_path"], item["traces_path"], memory_breakdown_path=None)
 
-    for b in result["top_bottlenecks"]:
-        assert "memory evidence unavailable" in b["evidence"]
+    evidence_by_stage = {b["stage"]: b["evidence"] for b in result["top_bottlenecks"]}
+    assert "memory evidence unavailable" in evidence_by_stage["decode"]
+    assert "memory evidence unavailable" in evidence_by_stage["prefill"]
+    assert "memory" not in evidence_by_stage["queue_wait"]
 
 
 def test_memory_breakdown_parsed_when_valid(synthetic_manifest):
@@ -107,7 +108,7 @@ def test_memory_breakdown_parsed_when_valid(synthetic_manifest):
         # Evidence must NOT say "memory evidence unavailable"
         top_b = result["top_bottlenecks"][0]
         assert "memory evidence unavailable" not in top_b["evidence"]
-        assert "memory:" in top_b["evidence"]
+        assert "decode memory:" in top_b["evidence"]
     finally:
         if os.path.exists(mem_file):
             os.remove(mem_file)

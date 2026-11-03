@@ -1,0 +1,81 @@
+E2:
+  - name: "rps_1"
+    experiment_id: "E2"
+    scenario_tag: "e2_rps_1"
+    rps: 1.0
+    num_requests: 50
+    prompt_tokens: 128
+    output_tokens: 64
+  - name: "rps_5"
+    experiment_id: "E2"
+    scenario_tag: "e2_rps_5"
+    rps: 5.0
+    num_requests: 50
+    prompt_tokens: 128
+    output_tokens: 64
+  - name: "rps_10"
+    experiment_id: "E2"
+    scenario_tag: "e2_rps_10"
+    rps: 10.0
+    num_requests: 50
+    prompt_tokens: 128
+    output_tokens: 64
+
+E3:
+  - name: "short_prompt"
+    experiment_id: "E3"
+    scenario_tag: "e3_short_prompt"
+    rps: 2.0
+    num_requests: 50
+    prompt_tokens: 32
+    output_tokens: 64
+  - name: "long_prompt"
+    experiment_id: "E3"
+    scenario_tag: "e3_long_prompt"
+    rps: 2.0
+    num_requests: 50
+    prompt_tokens: 1024
+    output_tokens: 64
+  - name: "long_output"
+    experiment_id: "E3"
+    scenario_tag: "e3_long_output"
+    rps: 2.0
+    num_requests: 50
+    prompt_tokens: 128
+    output_tokens: 256
+
+E4:
+  - name: "batching_on"
+    experiment_id: "E4"
+    scenario_tag: "e4_batching_on"
+    rps: 5.0
+    num_requests: 50
+    prompt_tokens: 128
+    output_tokens: 64
+    batching: true
+  - name: "batching_off"
+    experiment_id: "E4"
+    scenario_tag: "e4_batching_off"
+    rps: 5.0
+    num_requests: 50
+    prompt_tokens: 128
+    output_tokens: 64
+    batching: false
+
+E5:
+  - name: "small_model"
+    experiment_id: "E5"
+    scenario_tag: "e5_small_model"
+    rps: 2.0
+    num_requests: 50
+    prompt_tokens: 128
+    output_tokens: 64
+    model_name: "Qwen/Qwen2.5-0.5B-Instruct"
+  - name: "medium_model"
+    experiment_id: "E5"
+    scenario_tag: "e5_medium_model"
+    rps: 2.0
+    num_requests: 50
+    prompt_tokens: 128
+    output_tokens: 64
+    model_name: "Qwen/Qwen2.5-1.5B-Instruct"

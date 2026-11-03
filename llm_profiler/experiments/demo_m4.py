@@ -29,6 +29,7 @@ def run_demo() -> None:
     print("  PROJECT 6: INFERENCE COST AND LATENCY PROFILER FOR LLM SERVING STACKS")
     print("  MEMBER 4: ANALYZER, COST MODEL & VALIDATION LEAD DEMONSTRATION")
     print("=" * 78)
+    print("[DATA SOURCE] Synthetic validation mode by default: this demo is intentionally synthetic unless live hooks and a compatible model are present.")
 
     gpu_price = load_gpu_price_from_config("config.yaml")
     print(f"\n[CONFIG] Loaded GPU Hourly Price: ${gpu_price:.2f}/hr (from config.yaml)")

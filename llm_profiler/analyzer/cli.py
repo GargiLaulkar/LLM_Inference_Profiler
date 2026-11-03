@@ -75,6 +75,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Force time_share=1.0 for dedicated GPU instance cost modeling.",
     )
     parser.add_argument(
+        "--batching-off",
+        action="store_true",
+        help="Record that batching was disabled for this run when evaluating memory evidence.",
+    )
+    parser.add_argument(
         "--max-bottlenecks",
         type=int,
         default=3,
@@ -145,6 +150,7 @@ def run_analysis(args: argparse.Namespace) -> Dict[str, Any]:
         memory_metrics=memory_metrics,
         max_bottlenecks=args.max_bottlenecks,
         force_full_time_share=args.full_time_share,
+        batching_enabled=False if args.batching_off else None,
     )
 
     return result
