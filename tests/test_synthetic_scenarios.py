@@ -73,8 +73,10 @@ def test_memory_breakdown_unavailable_when_absent(synthetic_manifest):
     analyzer = BottleneckAnalyzer(gpu_price_per_hour_usd=1.0)
     result = analyzer.analyze(item["csv_path"], item["traces_path"], memory_breakdown_path=None)
 
-    for b in result["top_bottlenecks"]:
-        assert "memory evidence unavailable" in b["evidence"]
+    evidence_by_stage = {b["stage"]: b["evidence"] for b in result["top_bottlenecks"]}
+    assert "memory evidence unavailable" in evidence_by_stage["decode"]
+    assert "memory evidence unavailable" in evidence_by_stage["prefill"]
+    assert "memory" not in evidence_by_stage["queue_wait"]
 
 
 def test_memory_breakdown_parsed_when_valid(synthetic_manifest):
@@ -106,7 +108,7 @@ def test_memory_breakdown_parsed_when_valid(synthetic_manifest):
         # Evidence must NOT say "memory evidence unavailable"
         top_b = result["top_bottlenecks"][0]
         assert "memory evidence unavailable" not in top_b["evidence"]
-        assert "memory:" in top_b["evidence"]
+        assert "decode memory:" in top_b["evidence"]
     finally:
         if os.path.exists(mem_file):
             os.remove(mem_file)
