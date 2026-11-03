@@ -102,7 +102,7 @@ services:
       - /bin/sh
       - -lc
       - >
-        PYTHONPATH=/workspace python -c "from llm_profiler.instrumentation import run_exporter; run_exporter(host='0.0.0.0', port=int(__import__('os').environ.get('PROFILER_EXPORTER_PORT', '9101')) )"
+        PYTHONPATH=/workspace python -c "from llm_profiler.instrumentation import run_exporter; run_exporter(host='0.0.0.0', port=int(__import__('os').environ.get('PROFILER_EXPORTER_PORT', '9101')) ); import threading; threading.Event().wait()"
     volumes:
       - ../:/workspace:ro
     ports:
