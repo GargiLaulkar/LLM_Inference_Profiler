@@ -102,7 +102,7 @@ services:
       - /bin/sh
       - -lc
       - >
-        PYTHONPATH=/workspace python -c "from llm_profiler.instrumentation import run_exporter; run_exporter(host='0.0.0.0', port=int(__import__('os').environ.get('PROFILER_EXPORTER_PORT', '9101')) )"
+        PYTHONPATH=/workspace python -c "from llm_profiler.instrumentation import run_exporter; run_exporter(host='0.0.0.0', port=int(__import__('os').environ.get('PROFILER_EXPORTER_PORT', '9101')) ); import threading; threading.Event().wait()"
     volumes:
       - ../:/workspace:ro
     ports:
@@ -153,6 +153,29 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+
+  m4_cost_exporter:
+    profiles: ["m4"]
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.m4_cost_exporter
+    container_name: llmprof_m4_cost_exporter
+    environment:
+      M4_TIME_SHARE: ${M4_TIME_SHARE:-}
+      PROMETHEUS_URL: http://prometheus:9090
+    command:
+      - --host
+      - 0.0.0.0
+      - --port
+      - ${M4_COST_EXPORTER_PORT:-9103}
+      - --prometheus-url
+      - http://prometheus:9090
+    ports:
+      - "${M4_COST_EXPORTER_PORT:-9103}:9103"
+    depends_on:
+      - prometheus
+    networks:
+      - llmprof
 
 volumes:
   hf_cache:
