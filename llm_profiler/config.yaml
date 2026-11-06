@@ -2,6 +2,9 @@ model_name: "Qwen/Qwen2.5-0.5B-Instruct"
 server_host: "127.0.0.1"
 server_port: 8000
 server_url: "http://127.0.0.1:8000/v1"
+gateway_host: "127.0.0.1"
+gateway_port: 8080
+gateway_url: "http://127.0.0.1:8080/v1"
 prometheus_url: "http://127.0.0.1:9090"
 gpu_price_per_hour_usd: 1.0
 prometheus_scrape_interval_s: 5
