@@ -168,6 +168,12 @@ async def lifespan(app: FastAPI):
     state.session = aiohttp.ClientSession(connector=connector)
     state.tokenizer_helper = TokenizerHelper(state.model_name, state.vllm_url)
     state.batch_semaphore = asyncio.Semaphore(1)
+    trace_path = state.get_trace_path()
+    if trace_path:
+        try:
+            Path(trace_path).parent.mkdir(parents=True, exist_ok=True)
+        except Exception as e:
+            logger.warning("Failed to pre-create trace directory: %s", e)
     yield
     if state.session:
         try:
