@@ -1,0 +1,99 @@
+{
+  "control_false_positive_check": {
+    "control_runs": 2,
+    "false_positives": 0,
+    "status": "pass"
+  },
+  "data_source": "live",
+  "detection_accuracy": 0.3333333333333333,
+  "evaluated_injection_runs": 6,
+  "experiment_id": "E1",
+  "explained_share_by_run": [
+    {
+      "explained_share": 0.9991,
+      "run": "control_repeat_01",
+      "warning": false
+    },
+    {
+      "explained_share": 0.9974,
+      "run": "control_repeat_02",
+      "warning": false
+    },
+    {
+      "explained_share": 0.9985,
+      "run": "cpu_preprocess_repeat_01",
+      "warning": false
+    },
+    {
+      "explained_share": 0.9975,
+      "run": "cpu_preprocess_repeat_02",
+      "warning": false
+    },
+    {
+      "explained_share": 0.998,
+      "run": "no_batching_repeat_01",
+      "warning": false
+    },
+    {
+      "explained_share": 0.9984,
+      "run": "no_batching_repeat_02",
+      "warning": false
+    },
+    {
+      "explained_share": 0.9984,
+      "run": "slow_tokenizer_repeat_01",
+      "warning": false
+    },
+    {
+      "explained_share": 0.9986,
+      "run": "slow_tokenizer_repeat_02",
+      "warning": false
+    }
+  ],
+  "run_count": 8,
+  "run_validity": [
+    {
+      "message": "",
+      "run": "control_repeat_01",
+      "validity": "valid"
+    },
+    {
+      "message": "",
+      "run": "control_repeat_02",
+      "validity": "valid"
+    },
+    {
+      "message": "",
+      "run": "cpu_preprocess_repeat_01",
+      "validity": "valid"
+    },
+    {
+      "message": "",
+      "run": "cpu_preprocess_repeat_02",
+      "validity": "valid"
+    },
+    {
+      "message": "",
+      "run": "no_batching_repeat_01",
+      "validity": "valid"
+    },
+    {
+      "message": "",
+      "run": "no_batching_repeat_02",
+      "validity": "valid"
+    },
+    {
+      "message": "",
+      "run": "slow_tokenizer_repeat_01",
+      "validity": "valid"
+    },
+    {
+      "message": "",
+      "run": "slow_tokenizer_repeat_02",
+      "validity": "valid"
+    }
+  ],
+  "status": "completed",
+  "top3_hit_rate": 1.0,
+  "unknown_stage_count": 0
+}

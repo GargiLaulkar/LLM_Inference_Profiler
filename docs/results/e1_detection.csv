@@ -1,0 +1,9 @@
+run,injection,repeat,model,expected_stage,top_stage,top3_stages,explained_share,explained_share_warning,request_count,requests_with_trace,requests_without_trace,missing_trace_percent,unknown_stage_count,unexpected_trace_request_ids,validity,detection_status,control_false_positive,message
+control_repeat_01,control,1,Qwen/Qwen2.5-0.5B-Instruct,decode,prefill,"[""prefill"", ""decode"", ""tokenization""]",0.9991,False,50,50,0,0.0,0,0,valid,not_applicable,False,
+control_repeat_02,control,2,Qwen/Qwen2.5-0.5B-Instruct,decode,decode,"[""decode"", ""prefill"", ""tokenization""]",0.9974,False,50,50,0,0.0,0,0,valid,not_applicable,False,
+cpu_preprocess_repeat_01,cpu_preprocess,1,Qwen/Qwen2.5-0.5B-Instruct,tokenization,decode,"[""decode"", ""tokenization"", ""prefill""]",0.9985,False,50,50,0,0.0,0,0,valid,fail,,
+cpu_preprocess_repeat_02,cpu_preprocess,2,Qwen/Qwen2.5-0.5B-Instruct,tokenization,decode,"[""decode"", ""tokenization"", ""prefill""]",0.9975,False,50,50,0,0.0,0,0,valid,fail,,
+no_batching_repeat_01,no_batching,1,Qwen/Qwen2.5-0.5B-Instruct,queue_wait,queue_wait,"[""queue_wait"", ""decode"", ""prefill""]",0.998,False,50,50,0,0.0,0,0,valid,pass,,
+no_batching_repeat_02,no_batching,2,Qwen/Qwen2.5-0.5B-Instruct,queue_wait,queue_wait,"[""queue_wait"", ""decode"", ""prefill""]",0.9984,False,50,50,0,0.0,0,0,valid,pass,,
+slow_tokenizer_repeat_01,slow_tokenizer,1,Qwen/Qwen2.5-0.5B-Instruct,tokenization,decode,"[""decode"", ""tokenization"", ""prefill""]",0.9984,False,50,50,0,0.0,0,0,valid,fail,,
+slow_tokenizer_repeat_02,slow_tokenizer,2,Qwen/Qwen2.5-0.5B-Instruct,tokenization,decode,"[""decode"", ""tokenization"", ""prefill""]",0.9986,False,50,50,0,0.0,0,0,valid,fail,,
