@@ -177,6 +177,38 @@ services:
     networks:
       - llmprof
 
+  gateway:
+    profiles: ["gateway"]
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.gateway
+    container_name: llmprof_gateway
+    environment:
+      - LLMPROF_PROFILER_ENABLED=${LLMPROF_PROFILER_ENABLED:-1}
+      - LLMPROF_SLOW_TOKENIZER_MS=${LLMPROF_SLOW_TOKENIZER_MS:-}
+      - LLMPROF_CPU_PREPROCESS_MS=${LLMPROF_CPU_PREPROCESS_MS:-}
+      - LLMPROF_NO_BATCHING=${LLMPROF_NO_BATCHING:-}
+      - LLMPROF_TRACE_PATH=${LLMPROF_TRACE_PATH:-}
+      - VLLM_URL=${VLLM_URL:-http://vllm:8000/v1}
+      - PROFILER_EXPORTER_URL=${PROFILER_EXPORTER_URL:-http://profiler_exporter:9101}
+      - GATEWAY_HOST=0.0.0.0
+      - GATEWAY_PORT=${GATEWAY_PORT:-8080}
+    volumes:
+      - ../results/traces:/workspace/results/traces
+    ports:
+      - "${GATEWAY_PORT:-8080}:8080"
+    depends_on:
+      - vllm
+      - profiler_exporter
+    networks:
+      - llmprof
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health', timeout=2).read()"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
 volumes:
   hf_cache:
   prometheus_data:

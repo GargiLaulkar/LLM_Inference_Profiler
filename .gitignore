@@ -17,6 +17,8 @@ results/*.csv
 !results/.gitkeep
 results/deep_dive/*
 !results/deep_dive/.gitkeep
+results/traces/*
+!results/traces/.gitkeep
 llm_profiler/results/*.csv
 !llm_profiler/results/sample_*.csv
 !llm_profiler/results/.gitkeep

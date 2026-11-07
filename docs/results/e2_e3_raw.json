@@ -1,0 +1,68 @@
+{
+  "rps_1": {
+    "mean_ms": 581.53,
+    "p50_ms": 564.28,
+    "p95_ms": 842.31,
+    "total_requests": 50,
+    "success_count": 50,
+    "success_rate": 1.0,
+    "throughput_rps": 1.008,
+    "prompt_tokens": 128,
+    "output_tokens": 64
+  },
+  "rps_5": {
+    "mean_ms": 700.25,
+    "p50_ms": 699.42,
+    "p95_ms": 767.34,
+    "total_requests": 50,
+    "success_count": 50,
+    "success_rate": 1.0,
+    "throughput_rps": 4.799,
+    "prompt_tokens": 128,
+    "output_tokens": 64
+  },
+  "rps_10": {
+    "mean_ms": 706.52,
+    "p50_ms": 686.86,
+    "p95_ms": 925.61,
+    "total_requests": 50,
+    "success_count": 50,
+    "success_rate": 1.0,
+    "throughput_rps": 9.131,
+    "prompt_tokens": 128,
+    "output_tokens": 64
+  },
+  "short_prompt": {
+    "mean_ms": 573.96,
+    "p50_ms": 566.09,
+    "p95_ms": 618.27,
+    "total_requests": 50,
+    "success_count": 50,
+    "success_rate": 1.0,
+    "throughput_rps": 1.999,
+    "prompt_tokens": 32,
+    "output_tokens": 64
+  },
+  "long_prompt": {
+    "mean_ms": 617.77,
+    "p50_ms": 608.27,
+    "p95_ms": 649.79,
+    "total_requests": 50,
+    "success_count": 50,
+    "success_rate": 1.0,
+    "throughput_rps": 1.994,
+    "prompt_tokens": 1024,
+    "output_tokens": 64
+  },
+  "long_output": {
+    "mean_ms": 2467.78,
+    "p50_ms": 2449.65,
+    "p95_ms": 2557.71,
+    "total_requests": 50,
+    "success_count": 50,
+    "success_rate": 1.0,
+    "throughput_rps": 1.863,
+    "prompt_tokens": 128,
+    "output_tokens": 256
+  }
+}
