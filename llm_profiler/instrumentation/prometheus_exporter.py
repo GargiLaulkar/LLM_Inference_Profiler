@@ -155,16 +155,20 @@ class _HistogramSeries:
 
     def render(self, metric_name: str, *, labels: Optional[Dict[str, str]] = None) -> List[str]:
         """Render the histogram as Prometheus text format."""
-        label_string = _format_label_string(labels)
+        base_labels = dict(labels) if labels else {}
         lines: List[str] = []
 
         for bucket in self._DEFAULT_BUCKETS:
             bucket_key = str(bucket)
-            lines.append(f'{metric_name}_bucket{label_string}{{le="{bucket_key}"}} {self.buckets[bucket_key]}')
+            b_labels = dict(base_labels)
+            b_labels["le"] = bucket_key
+            lines.append(f'{metric_name}_bucket{_format_label_string(b_labels)} {self.buckets[bucket_key]}')
 
-        lines.append(f'{metric_name}_bucket{label_string}{{le="+Inf"}} {self.buckets["+Inf"]}')
-        lines.append(f'{metric_name}_sum{label_string} {self.sum}')
-        lines.append(f'{metric_name}_count{label_string} {self.count}')
+        inf_labels = dict(base_labels)
+        inf_labels["le"] = "+Inf"
+        lines.append(f'{metric_name}_bucket{_format_label_string(inf_labels)} {self.buckets["+Inf"]}')
+        lines.append(f'{metric_name}_sum{_format_label_string(base_labels)} {self.sum}')
+        lines.append(f'{metric_name}_count{_format_label_string(base_labels)} {self.count}')
         return lines
 
 
