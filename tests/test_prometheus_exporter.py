@@ -195,3 +195,27 @@ def test_ingest_endpoint_rejects_malformed_payloads():
                 urllib.request.urlopen(request, timeout=5)
     finally:
         exporter.shutdown()
+
+
+def test_histogram_rendered_format_strict_prometheus_parser():
+    """Verify that MetricRegistry.render() output strictly parses without double braces."""
+    import prometheus_client.parser
+
+    registry = MetricRegistry()
+    registry.record_stage_duration("tokenization", 0.05)
+    registry.record_stage_duration("prefill", 0.12)
+    registry.record_stage_duration("decode", 0.35)
+    registry.record_request_total_duration(0.52)
+    registry.record_tokens_in_total(128)
+    registry.record_tokens_out_total(64)
+
+    text = registry.render()
+    assert '{{le="' not in text, "Doubled braces detected in bucket lines"
+    assert '{stage="tokenization",le="0.05"}' in text
+
+    families = list(prometheus_client.parser.text_string_to_metric_families(text))
+    assert len(families) >= 4
+    family_names = {f.name for f in families}
+    assert "llmprof_stage_latency_seconds" in family_names
+    assert "llmprof_request_total_seconds" in family_names
+

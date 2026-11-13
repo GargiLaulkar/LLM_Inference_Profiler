@@ -1,0 +1,68 @@
+model_name: "Qwen/Qwen2.5-0.5B-Instruct"
+server_host: "127.0.0.1"
+server_port: 8080
+server_url: "http://127.0.0.1:8080/v1"
+gateway_host: "127.0.0.1"
+gateway_port: 8080
+gateway_url: "http://127.0.0.1:8080/v1"
+prometheus_url: "http://127.0.0.1:9090"
+gpu_price_per_hour_usd: 1.0
+prometheus_scrape_interval_s: 5
+results_dir: "results"
+
+scenarios:
+  - name: "step2_test"
+    rps: 2.0
+    num_requests: 20
+    prompt_tokens: 128
+    output_tokens: 64
+  - name: "low_load"
+    rps: 1.0
+    num_requests: 100
+    prompt_tokens: 128
+    output_tokens: 64
+  - name: "medium_load"
+    rps: 5.0
+    num_requests: 100
+    prompt_tokens: 128
+    output_tokens: 64
+  - name: "rps_1"
+    rps: 1.0
+    num_requests: 50
+    prompt_tokens: 128
+    output_tokens: 64
+  - name: "rps_5"
+    rps: 5.0
+    num_requests: 50
+    prompt_tokens: 128
+    output_tokens: 64
+  - name: "rps_10"
+    rps: 10.0
+    num_requests: 50
+    prompt_tokens: 128
+    output_tokens: 64
+  - name: "short_prompt"
+    rps: 2.0
+    num_requests: 50
+    prompt_tokens: 32
+    output_tokens: 64
+  - name: "long_prompt"
+    rps: 2.0
+    num_requests: 50
+    prompt_tokens: 1024
+    output_tokens: 64
+  - name: "long_output"
+    rps: 2.0
+    num_requests: 50
+    prompt_tokens: 128
+    output_tokens: 256
+
+gpu_collector:
+  port: 9102
+  sample_interval_s: 1.0
+  memory_breakdown_file: results/deep_dive/memory_breakdown.json
+
+cost_exporter:
+  host: "127.0.0.1"
+  port: 9103
+
